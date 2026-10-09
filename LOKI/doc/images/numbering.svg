@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 988 888" font-family="sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+<path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/></marker></defs>
+<style>
+.tube { fill: #dbe6f3; stroke: #3d6a99; stroke-width: 1.5; }
+.straw { fill: #f6e3c8; stroke: #b07a2a; stroke-width: 1.5; }
+.id { font-size: 13px; text-anchor: middle; fill: #1d2b3a; }
+.big { font-size: 17px; }
+.label { font-size: 14px; text-anchor: middle; fill: #1d2b3a; }
+.note { font-size: 12px; fill: #555; }
+.beam { stroke: #c0392b; stroke-width: 2.5; }
+</style>
+<rect width="100%" height="100%" fill="white"/>
+<circle cx="230.6" cy="160.9" r="40.6" class="tube"/>
+<text x="230.6" y="165.9" class="id">0</text>
+<circle cx="230.6" cy="251.8" r="40.6" class="tube"/>
+<text x="230.6" y="256.8" class="id">1</text>
+<circle cx="230.6" cy="342.7" r="40.6" class="tube"/>
+<text x="230.6" y="347.7" class="id">2</text>
+<circle cx="230.6" cy="433.6" r="40.6" class="tube"/>
+<text x="230.6" y="438.6" class="id">3</text>
+<circle cx="230.6" cy="524.4" r="40.6" class="tube"/>
+<text x="230.6" y="529.4" class="id">4</text>
+<circle cx="230.6" cy="615.3" r="40.6" class="tube"/>
+<text x="230.6" y="620.3" class="id">5</text>
+<circle cx="230.6" cy="706.2" r="40.6" class="tube"/>
+<text x="230.6" y="711.2" class="id">6</text>
+<circle cx="230.6" cy="797.1" r="40.6" class="tube"/>
+<text x="230.6" y="802.1" class="id">7</text>
+<circle cx="314.7" cy="140.8" r="40.6" class="tube"/>
+<text x="314.7" y="145.8" class="id">56</text>
+<circle cx="314.7" cy="231.7" r="40.6" class="tube"/>
+<text x="314.7" y="236.7" class="id">57</text>
+<circle cx="314.7" cy="322.6" r="40.6" class="tube"/>
+<text x="314.7" y="327.6" class="id">58</text>
+<circle cx="314.7" cy="413.5" r="40.6" class="tube"/>
+<text x="314.7" y="418.5" class="id">59</text>
+<circle cx="314.7" cy="504.4" r="40.6" class="tube"/>
+<text x="314.7" y="509.4" class="id">60</text>
+<circle cx="314.7" cy="595.2" r="40.6" class="tube"/>
+<text x="314.7" y="600.2" class="id">61</text>
+<circle cx="314.7" cy="686.1" r="40.6" class="tube"/>
+<text x="314.7" y="691.1" class="id">62</text>
+<circle cx="314.7" cy="777.0" r="40.6" class="tube"/>
+<text x="314.7" y="782.0" class="id">63</text>
+<circle cx="398.7" cy="120.7" r="40.6" class="tube"/>
+<text x="398.7" y="125.7" class="id">112</text>
+<circle cx="398.7" cy="211.6" r="40.6" class="tube"/>
+<text x="398.7" y="216.6" class="id">113</text>
+<circle cx="398.7" cy="302.5" r="40.6" class="tube"/>
+<text x="398.7" y="307.5" class="id">114</text>
+<circle cx="398.7" cy="393.4" r="40.6" class="tube"/>
+<text x="398.7" y="398.4" class="id">115</text>
+<circle cx="398.7" cy="484.3" r="40.6" class="tube"/>
+<text x="398.7" y="489.3" class="id">116</text>
+<circle cx="398.7" cy="575.1" r="40.6" class="tube"/>
+<text x="398.7" y="580.1" class="id">117</text>
+<circle cx="398.7" cy="666.0" r="40.6" class="tube"/>
+<text x="398.7" y="671.0" class="id">118</text>
+<circle cx="398.7" cy="756.9" r="40.6" class="tube"/>
+<text x="398.7" y="761.9" class="id">119</text>
+<circle cx="482.7" cy="100.6" r="40.6" class="tube"/>
+<text x="482.7" y="105.6" class="id">168</text>
+<circle cx="482.7" cy="191.5" r="40.6" class="tube"/>
+<text x="482.7" y="196.5" class="id">169</text>
+<circle cx="482.7" cy="282.4" r="40.6" class="tube"/>
+<text x="482.7" y="287.4" class="id">170</text>
+<circle cx="482.7" cy="373.3" r="40.6" class="tube"/>
+<text x="482.7" y="378.3" class="id">171</text>
+<circle cx="482.7" cy="464.2" r="40.6" class="tube"/>
+<text x="482.7" y="469.2" class="id">172</text>
+<circle cx="482.7" cy="555.0" r="40.6" class="tube"/>
+<text x="482.7" y="560.0" class="id">173</text>
+<circle cx="482.7" cy="645.9" r="40.6" class="tube"/>
+<text x="482.7" y="650.9" class="id">174</text>
+<circle cx="482.7" cy="736.8" r="40.6" class="tube"/>
+<text x="482.7" y="741.8" class="id">175</text>
+<text x="230.6" y="46.0" class="label">layer 0</text>
+<text x="314.7" y="46.0" class="label">layer 1</text>
+<text x="398.7" y="46.0" class="label">layer 2</text>
+<text x="482.7" y="46.0" class="label">layer 3</text>
+<line x1="55.0" y1="479.0" x2="165.0" y2="479.0" class="beam" marker-end="url(#arrow)"/>
+<text x="55.0" y="469.0" class="label" text-anchor="start">beam</text>
+<text x="55.0" y="867.7" class="note" text-anchor="start">rows 8-55 continue downwards (56 rows, 28 packs)</text>
+<circle cx="780.5" cy="257.8" r="177.8" class="tube"/>
+<circle cx="673.2" cy="273.7" r="52.5" class="straw"/>
+<text x="673.2" y="279.7" class="id big">0</text>
+<circle cx="740.7" cy="358.7" r="52.5" class="straw"/>
+<text x="740.7" y="364.7" class="id big">1</text>
+<circle cx="848.0" cy="342.8" r="52.5" class="straw"/>
+<text x="848.0" y="348.8" class="id big">2</text>
+<circle cx="780.5" cy="257.8" r="52.5" class="straw"/>
+<text x="780.5" y="263.8" class="id big">3</text>
+<circle cx="713.1" cy="172.8" r="52.5" class="straw"/>
+<text x="713.1" y="178.8" class="id big">4</text>
+<circle cx="820.4" cy="156.9" r="52.5" class="straw"/>
+<text x="820.4" y="162.9" class="id big">5</text>
+<circle cx="887.9" cy="241.9" r="52.5" class="straw"/>
+<text x="887.9" y="247.9" class="id big">6</text>
+<text x="780.5" y="72.0" class="label">straws of tube 0</text>
+</svg>
