@@ -15,6 +15,9 @@ The instrument definition files of LokiMantid are nominal: process only simulati
 metadata) the processing prints a warning: its pixel positions in Mantid would be wrong (by up to ~33 mm for
 2026-September-SAM-606). Processing calibrated geometries would need instrument definition files made from the
 calibration (see `checkBankCalibration` in {sbpkg}`LokiMantid/python/workspaceCreator.py`).
+
+This concerns only simulations: for measured data Mantid takes the pixel geometry from the instrument's NeXus file,
+which carries the surveyed geometry once its JSON template is updated with loki-geometry.
 :::
 
 ## Contents
@@ -31,16 +34,17 @@ calibration (see `checkBankCalibration` in {sbpkg}`LokiMantid/python/workspaceCr
 
 The scripts run with the Python of Mantid (`mantidpython`), as the Mantid Python package is built for it. Therefore
 the C++ modules of G4GeoLoki (built for the dgcode Python) cannot be used in them. With the older-Mantid setup,
-`mantidpython` is IPython and the script arguments must follow `--`: `sb_lokimantid_loki -- -h` (the newer setup:
-`sb_lokimantid_loki -h`; `-- -h` fails there, which shows the setup in use).
+`mantidpython` is IPython and the script arguments must follow `--`, e.g. `sb_lokimantid_loki -- -h`; the examples
+below use the newer setup, without `--` (`sb_lokimantid_loki -h` works with it, `-- -h` does not, which shows the
+setup in use).
 
 ## Processing
 
 ```sh
-sb_lokimantid_loki -- -h
-sb_lokimantid_loki -- detectionEvents.mcpl --showMetadata
-sb_lokimantid_loki -- detectionEvents.mcpl -s testLokiMcStas --mcstasDir test_acc0p05_rear5_samp18_1e7
-sb_lokimantid_loki -- detectionEvents.mcpl -s testFlood -n100000
+sb_lokimantid_loki -h
+sb_lokimantid_loki detectionEvents.mcpl --showMetadata
+sb_lokimantid_loki detectionEvents.mcpl -s testLokiMcStas --mcstasDir DIR    # DIR: the McStas output directory
+sb_lokimantid_loki detectionEvents.mcpl -s testFlood -n100000                # flood source: the simulated neutrons
 ```
 
 | Option | Meaning |
@@ -113,5 +117,5 @@ see [](installation.md#dmsc-cluster)). Submit with `sbatch submit.batch`:
 #SBATCH --time=20:00:00
 #SBATCH --exclusive
 
-sb_lokimantid_loki -- /full/path/to/detectionEvents.mcpl -s /full/path/to/testOutput -n100000
+sb_lokimantid_loki /full/path/to/detectionEvents.mcpl -s /full/path/to/testOutput -n100000
 ```

@@ -12,6 +12,7 @@ git clone https://github.com/ess-dg/dgcode_projects.git
 cd dgcode_projects
 conda activate dgcode
 sb
+eval "$(sb --env-setup)"    # in every new terminal: makes the sb_<package>_<script> commands available
 ```
 
 ## Projects

@@ -7,8 +7,10 @@ checked against the current cluster.
 
 Build dgcode_projects on the cluster (see [](installation.md#dmsc-cluster)). Large simulations are split into many
 jobs, each running a [simulation and its analysis](simulation.md#simulation-and-analysis-in-one-step) in its own
-directory, submitted with the dgcode utility `sb_dmscutils_submit` from a Python script. Templates are in
-{sbpkg}`LOKI/scripts`: `submit_template_flood` and `submit_template_mcpl`.
+directory, submitted with the dgcode utility `sb_dmscutils_submit` from a Python script. The scripts below
+are templates: copy one, set the paths, numbers and parameters, and run the copy. (Similar templates are in
+{sbpkg}`LOKI/scripts`, `submit_template_flood` and `submit_template_mcpl`; they are also installed as commands,
+`sb_loki_submit_template_*`, which submit jobs with the settings in the file: do not run them unedited.)
 
 ## Flood source
 
@@ -24,7 +26,8 @@ nJobs, nEventsPerJob = (10000, 100000)  # total: 1e4 x 1e5 = 1e9
 submitJobRange = [0, 500]  # submit only these jobs now (do not flood the cluster)
 
 queue = 'newlong'
-cmdbase = ['sb_loki_simanachain', 'results', 'event_gen=flood', 'aiming_bank_id=3']
+cmdbase = ['sb_loki_simanachain', 'results', 'event_gen=flood', 'aiming_bank_id=3',
+           'bank_calibration=nominal-geant4-geometry']  # for Mantid processing
 
 for i in range(nJobs):
     if i < submitJobRange[0] or i >= submitJobRange[1]:
@@ -48,6 +51,7 @@ The same, with each job taking its part of the MCPL file (`skip_events`); the la
 number of particles comes from `pymcpltool --stats` (see [](mcstas.md#geant4-input)):
 
 ```python
+baseDir = '/mnt/groupdata/detector/workspaces/<user>/lokiSimulations/'
 mcplFile = baseDir + '/mcstas/samp18/loki-collen_3p0m-ap1_30mm-ap2_10mm-lmin_3p0A-lmax_11p5A_rear_10p0m.mcpl.gz'
 outputdir = baseDir + '/geant4/samp18/rear10'
 rearDetDistance = 10  # [m]
@@ -98,8 +102,8 @@ gives `MCPL WARNING: Input file appears to not have been closed properly` when m
 Merge the detection files and the histograms (more than about 10 000 files at once can be a problem):
 
 ```sh
-sb_mcpl_tool -m floodSource_10000to19999 job1*/results/runana/detectionEvents.mcpl
-sb_simplehists_merge -o floodSource_10000to19999 job1*/results/runana/*.shist
+mcpltool -m floodSource_1000to1999 job1???/results/runana/detectionEvents.mcpl
+sb_simplehists_merge -o floodSource_1000to1999 job1???/results/runana/*.shist
 ```
 
 Geant4 jobs had problems on the quark partition; the newlong and short partitions were used.

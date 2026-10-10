@@ -80,9 +80,10 @@ function. The nominal values of F, u, w and n come from the tables of `BcsBanks`
 technical drawings), or from a bank calibration.
 
 ```{figure} images/bank_reference_point.webp
-:alt: The reference point of a bank in a technical drawing (red arrow)
+:alt: The reference point of the bank distances and angles in a technical drawing (red arrow)
 
-The reference point of a bank in a technical drawing (red arrow)
+A section of a bank in a technical drawing: the red arrow marks the reference point of the drawing's distances and
+angles (the centre-most front point of the first tube layer), from which the nominal F, u, w and n are computed
 ```
 
 The rear bank moves along the beam: its distance from the sample is the geometry parameter
@@ -97,7 +98,7 @@ The geometry parameter `bank_calibration` selects the placement of the banks:
 | `2026-September-SAM-606` (default) | The survey of September 2026: banks 1-8 measured; the rear bank (not surveyed) from the CAD geometry. |
 | `nominal-cad-geometry` | The intended CAD geometry. |
 | `nominal-geant4-geometry` | The built-in tables of `BcsBanks` (the geometry before the calibrations). |
-| a path, e.g. `./mycal.txt` | A calibration file. |
+| a path (any value containing a `/`), e.g. `./mycal.txt` | A calibration file (without a `/` the value is taken as a name). |
 
 A name selects the file `G4GeoLoki/data/bank_calibration_<name>.txt`. The file gives F, u, w and n of each calibrated
 bank (in mm, in the world frame); banks without a line keep their nominal placement. For the rear bank only the
@@ -105,7 +106,7 @@ direction and the x and y of F are used: its z is set by `rear_detector_distance
 {sbpkg}`G4GeoLoki/libinc/BankCalibration.hh`.
 
 The calibration files are written by [loki-geometry](https://github.com/MilanKlausz/loki-geometry), which computes the
-bank placements from a survey; `BankCalibration.hh` describes how to add a new calibration. Examples:
+bank placements from a survey (see [](#adding-a-calibration)). Examples:
 
 ```sh
 sb_loki_sim bank_calibration=nominal-geant4-geometry --view   # the nominal placement
@@ -119,16 +120,34 @@ nominal Geant4 geometry.
 
 :::{important}
 The Mantid processing (LokiMantid) assumes the nominal geometry: its instrument definition files are nominal.
-Simulations to be processed with Mantid need `bank_calibration=nominal-geant4-geometry`; the simulation, the analysis
-and LokiMantid print a warning otherwise. Using a calibration there would need new instrument definition files.
+Simulations to be processed with Mantid need `bank_calibration=nominal-geant4-geometry`; otherwise the simulation
+prints a note, and the analysis and LokiMantid a warning. Using a calibration there would need new instrument
+definition files. (Measured data are not affected: for them Mantid takes the pixel geometry from the instrument's
+NeXus file, which loki-geometry updates to the surveyed geometry.)
 :::
+
+### Adding a calibration
+
+1. Make the calibration file with loki-geometry (its "A new survey" and "Bank calibration for the Geant4 geometry"
+   sections): `loki-calibrate --survey-file NEW.txt --geant4-calibration-file <dgcode_projects>/LOKI/G4GeoLoki/data/`
+   writes `bank_calibration_<name>.txt` there.
+2. Rebuild (`sb`): only then is the new file found by its name (`bank_calibration=<name>`).
+3. Check the geometry: `sb_loki_sim bank_calibration=<name> --test`, and add the name to the configurations of
+   {sbpkg}`G4GeoLokiTests/scripts/test_geo_dense_overlaps` (the dense overlap test, see [](testing.md)).
+4. Verify the pixel geometry of loki-geometry for it: `loki-pixel-json -c <name> ...` and
+   `sb_g4geoloki_verifyjson` (see [](#verification)).
+5. Add it to the table above, and commit the data file (and the test) to dgcode_projects.
+
+To make it the default, change `defaultName` in {sbpkg}`G4GeoLoki/libsrc/BankCalibration.cc`; the tests that pin the
+default (`test_pixel_position_default` and the calibrated sections of the tests) then need new reference logs.
 
 ### Bank volumes and the notch
 
 ```{figure} images/bank_volumes.webp
 :alt: The bank volumes: bank 5 (front top) overlaps with bank 8 (front right)
 
-The bank volumes: bank 5 (front top) overlaps with bank 8 (front right)
+The bank volumes (the front banks on the left of the picture, the rear bank on the right): bank 5 (front top)
+overlaps with bank 8 (front right) in the red circle
 ```
 
 The bank boxes of the front banks overlap: bank 5 (top) with bank 8 (right), and bank 7 (bottom) with bank 6 (left).
@@ -146,25 +165,33 @@ The notch cut out of a bank volume
 
 ## Numbering and pixel ids
 
-The copy numbers of the Geant4 volumes follow the numbering of the ICD: in the analysis, the copy numbers of a hit
-give its bank, tube and straw. Each straw is divided into N pixels along its length (N is a parameter of the
-analysis, default 256).
+The copy numbers of the Geant4 volumes (the index Geant4 gives each placed volume) follow the numbering of the ICD:
+in the analysis, the copy numbers give the bank, tube and straw of a hit. Each straw is divided into N pixels along
+its length (N is a parameter of the analysis, default 256).
 
 ```{figure} images/icd_bank_numbering.webp
 :alt: Numbering of the banks and of the pixels along the straws (from the ICD)
 
-Numbering of the banks and of the pixels along the straws (from the ICD)
+Numbering of the banks and of the pixels along the straws (from the ICD, drawn with 512 pixels per straw)
 ```
 
 Tubes are numbered layer by layer from the front, along the tube rows in each layer: tube = layer × rows + row (a
-pack adds two rows; the rows of the banks mounted upside down, 1, 2, 5 and 6, are numbered in reverse). The straws of
-a tube are numbered 0-6, and the pixels along a straw 0 to N−1.
+pack adds two rows). The straws of a tube are numbered 0-6 (straw 3 on the tube axis), and the pixels along a straw
+0 to N−1. Looking along the beam, the same in all banks:
+
+| | Horizontal tubes (banks 0, 1, 3, 5, 7) | Vertical tubes (banks 2, 4, 6, 8) |
+| --- | --- | --- |
+| Tube 0 | the top row of the front layer | the leftmost column of the front layer |
+| Pixel 0 | the left end of the straw (+x) | the bottom end of the straw (−y) |
+
+(The packs of banks 1, 2, 5 and 6 are mounted upside down; their tube and pixel numbering is reversed in the code so
+that the table holds for them too.)
 
 ```{figure} images/numbering.svg
 :width: 100%
 
-Tube and straw numbering of the rear bank (side view; drawn from the Geant4 geometry by
-`LOKI/doc/figures/make_numbering_figure.py`).
+Tube and straw numbering of the top of the rear bank, viewed from the right-hand side (looking along the beam;
+the beam comes from the left), drawn from the Geant4 geometry by `LOKI/doc/figures/make_numbering_figure.py`.
 ```
 
 The pixel id is
@@ -175,7 +202,8 @@ $$
 
 where offset<sub>bank</sub> is the number of pixels in the banks with a lower id (`sb_loki_info -d` lists them). The
 Geant4 pixel ids start at 0; the detector numbers of the ICD and of the NeXus files start at 1 (detector number =
-pixel id + 1). The offset is applied when the mask files and the NeXus files are written.
+pixel id + 1). The Geant4 pixel ids (e.g. in the detection file) already include offset<sub>bank</sub>; the +1 is
+added when the mask files and the NeXus files are written.
 
 | Bank | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -200,8 +228,8 @@ const CalibMasks::CalibMasksBase mask0("lokiStandard-0", 0.3, 1600.0, -47.0, 7.6
 This mask has 6 mm wide slits every 100 mm, and is centred vertically on the bank. The geometry uses the mask named
 `lokiStandard-<bank id>` for each bank; to change a mask, edit its definition, or add a new mask and select it for its
 bank in the geometry module. The thickness and the material do not matter for the masking (geantinos do not
-interact; the analysis treats the mask as absorbing). The masks are mounted inside the bank boxes, 0.05-23 mm from
-the tube front (7.6 mm planned).
+interact; the analysis treats the mask as absorbing). The masks are mounted inside the bank boxes: their elevation from
+the tube front (the fifth value, 7.6 mm planned) can be 0.05 mm to about 23 mm.
 
 ```{figure} images/calibration_slits.webp
 :alt: Calibration slits (the CalibMaskBox volume expanded)
@@ -280,8 +308,9 @@ sb_loki_sim with_calibration_slits=1 bank_calibration=nominal-cad-geometry --tes
 
 The tests (`sb -t`, see [](testing.md)) check all configurations, also with dense random sampling.
 
-**Pixel positions.** `sb_g4geoloki_writepixelfile` writes the pixel centres of the geometry (columns: pixel id,
-x, y, z in m; the world frame, z from the sample unless `-ssd` is given):
+**Pixel positions.** `sb_g4geoloki_writepixelfile` writes the pixel centres of the geometry (columns: detector number
+= pixel id + 1, as in the ICD and the NeXus files; x, y, z in m in the world frame, z from the sample unless `-ssd`
+is given):
 
 ```sh
 sb_g4geoloki_writepixelfile -f pixels -n 256                     # pixels.txt, default calibration
@@ -296,8 +325,10 @@ tests check them against Geant4 tracking (geantinos aimed at the pixel centres m
 file, e.g. `loki.json`, or the output of [loki-geometry](https://github.com/MilanKlausz/loki-geometry)'s
 `loki-pixel-json`) with the Geant4 pixel centres. It finds the banks by name (`/entry/instrument/loki_detector_<id>`),
 follows their `depends_on` chains, and compares with the calibration recorded in the file (otherwise the nominal
-Geant4 geometry, or `--bankCalibration`). It exits with 1 if a bank differs by more than the tolerance (`-t`, default
-0.1 mm):
+Geant4 geometry, or `--bankCalibration`). It compares the pixel offsets plus the bank position (not the pixel
+shape: use it with files whose offsets are the pixel centres, the default of `loki-pixel-json`; loki-geometry's
+`loki-verify-json` also checks the pixel shape). It exits with 1 if a bank differs by more than the tolerance (`-t`,
+in m, default 0.0001 m = 0.1 mm; `loki-verify-json --tolerance` is in mm, default 1 mm):
 
 ```sh
 loki-pixel-json -o loki_detector_pixels.json --pixels-per-straw 16    # loki-geometry
@@ -305,14 +336,19 @@ sb_g4geoloki_verifyjson --json loki_detector_pixels.json -rear 4.9998
 sb_g4geoloki_verifyjson --json loki.json -rear 4.9998 --bankCalibration nominal-cad-geometry
 ```
 
-`-rear 4.9998`: the CAD geometry has the front face of the rear bank at 4.9998 m.
+`-rear` must be the distance of the rear bank front face in the file's geometry: 4.9998 m when its rear bank comes
+from the CAD geometry (`nominal-cad-geometry`, and `2026-September-SAM-606`, whose rear bank was not surveyed), the
+default 5 m for `nominal-geant4-geometry` (`loki-info -b 0 -c NAME` shows it).
 
 **Geometry information.** `sb_loki_info` prints the numbers of packs, tubes, straws and pixels per bank (`-d`), or
-the bank, pack, tube, straw and position of a pixel (`-p`); `-s` sets the pixels per straw, `-c` the calibration, `-r`
-the rear bank distance:
+the bank, pack, tube, straw and position of a pixel (`-p`; "InStraw id" is the pixel along the straw); `-s` sets the
+pixels per straw, `-c` the calibration, `-r` the rear bank distance [m], `--unit` and `--precision` the printed
+positions:
 
 ```console
 $ sb_loki_info -p 1214233 -s 512
+Used parameters: straw_pixel_number=512 rear_detector_distance_m=5.0 nominal_source_sample_distance_meters=23.6 bank_calibration=2026-September-SAM-606
+
 Pixel number: 1214233 (according to the Geant4 geometry. It corresponds to the pixelID 1214234 in the ICD.)
 Pixel centre position [m] X: -0.0512 Y: -0.3364 Z: 26.5403
 Bank id: 3
@@ -323,4 +359,16 @@ InStraw id: 281
 ```
 
 The z of the positions includes the source to sample distance (`--nominal_source_sample_distance_meters`, default
-23.6 m); set it to 0 for positions relative to the sample.
+23.6 m); set it to 0 for positions relative to the sample (as `sb_g4geoloki_writepixelfile` and loki-geometry give
+them).
+
+The same information from the Geant4 tools and from loki-geometry (which works in mm, from the sample):
+
+| | dgcode (`sb_loki_info`) | loki-geometry (`loki-info`) |
+| --- | --- | --- |
+| A pixel by its pixel id | `-p ID` | `-p ID` (`-d NUMBER`: by its detector number) |
+| Pixels per straw | `-s N` | `-n N` |
+| Rear bank distance | `-r 5` (m) | `-r 5000` (mm) |
+| Calibration | `-c NAME` | `-c NAME` |
+| Summary of the banks | `-d` | (no option) |
+| Positions | m, z from the source (`--unit mm --nominal_source_sample_distance_meters 0` for mm from the sample) | mm from the sample (`--unit m`) |

@@ -37,7 +37,7 @@ submission, see [](dmsc.md)); that is already 78 GB compressed. To keep only use
   the detection counts of a full simulation with a larger slit.
 - The beamstop removes the transmitted beam (earlier versions also stopped the unscattered neutrons in McStas).
 
-Split larger files with `mcpltool` (`sb_mcpl_tool` in dgcode): `-e` extracts, `-sN` skips the first N particles,
+Split larger files with `mcpltool` (also in the dgcode environment): `-e` extracts, `-sN` skips the first N particles,
 `-lN` limits the number:
 
 ```sh
@@ -46,7 +46,7 @@ mcpltool -e larmor_postsample.mcpl.gz larmor_postsample_after2e9 -s2000000000
 
 ## Geant4 input
 
-The MCPL tools come with McStas (`pymcpltool`, `mcpltool`) and with dgcode (`sb_mcpl_pytool`, `sb_mcpl_tool`). The
+The MCPL tools `mcpltool` and `pymcpltool` come with McStas and with the dgcode environment. The
 number of particles of a file is needed for the Geant4 submission:
 
 ```sh
@@ -112,6 +112,25 @@ sampleapy=0.015`; front/middle banks and rear bank files). Local runs with 1/100
 | Hard spheres | 3 | 200k | 4000 | 1e11 | 5 / - | 3.11e8 / 1.94e9 | 1.3e8 / 1.1e9 |
 | | 5 | 500k | 10000 | 1e11 | 3 / 5 | 2.85e8 / 2.01e9 | 1.2e8 / 1.1e9 |
 | | 8 | 1250k | 10000 | 2e11 | 3 / 4 | 2.70e8 / 1.93-1.98e9 | 1.16e8 / 1.1e9 |
+
+**From McStas to Mantid** (outline; the parameter values are examples, see the table above):
+
+```sh
+# 1. McStas: writes the monitor files and the three MCPL files to DIR
+mcrun loki_master_model.instr -d DIR -n1e9 collen=5 sampletype=0 deweight=1 bs5=3 bs10=5 acc_power=0.5
+# 2. Geant4, for the rear bank at 5 m: the front/middle file and the rear 5 m file, each simulated and analysed
+sb_loki_simanachain g4_frontmid event_gen=mcpl input_file=DIR/<name>_frontmid.mcpl.gz rear_detector_distance_m=5 \
+    bank_calibration=nominal-geant4-geometry analysis_straw_pixel_number=512 -j10
+sb_loki_simanachain g4_rear5 event_gen=mcpl input_file=DIR/<name>_rear_5p0m.mcpl.gz rear_detector_distance_m=5 \
+    bank_calibration=nominal-geant4-geometry analysis_straw_pixel_number=512 -j10
+# 3. Mantid: one NeXus file pair per detection file; the McStas monitors (from DIR) are needed only once
+sb_lokimantid_loki g4_frontmid/runana/detectionEvents.mcpl -s frontmid --mcstasDir DIR
+sb_lokimantid_loki g4_rear5/runana/detectionEvents.mcpl -s rear5 --detectorOnly
+```
+
+The MCPL files are named after the instrument settings, ending in `_frontmid`, `_rear_5p0m` and `_rear_10p0m`
+(e.g. `loki-collen_5p0m-ap1_30mm-ap2_10mm-lmin_3p0A-lmax_11p5A_rear_10p0m.mcpl.gz`). For large files see
+[](dmsc.md).
 
 ## Larmor model
 

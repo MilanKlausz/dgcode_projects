@@ -3,12 +3,11 @@
 ## Geant4 simulation (dgcode)
 
 1. Install dgcode as described in its
-   [documentation](https://mctools.github.io/simplebuild-dgcode/install.html): create the `dgcode` conda environment
-   and activate it in every new terminal:
+   [documentation](https://mctools.github.io/simplebuild-dgcode/install.html): download `conda_dgcode.yml` from
+   there and create the `dgcode` conda environment:
 
    ```sh
    conda env create -f conda_dgcode.yml
-   conda activate dgcode
    ```
 
 2. Clone [dgcode_projects](https://github.com/ess-dg/dgcode_projects) and build it:
@@ -16,11 +15,23 @@
    ```sh
    git clone https://github.com/ess-dg/dgcode_projects.git
    cd dgcode_projects
+   conda activate dgcode
    sb
    ```
 
-   Run `sb` again after changing C++ code; changes of Python scripts need no rebuild. The commands of the packages
-   are then available as `sb_<package>_<script>`, e.g. `sb_loki_sim` (the `sim` script of the `LOKI` package).
+3. Set up the shell, so that the commands of the packages are found, as `sb_<package>_<script>` (e.g.
+   `sb_loki_sim`, the `sim` script of the `LOKI` package):
+
+   ```sh
+   eval "$(sb --env-setup)"       # in the dgcode_projects directory
+   sb_loki_sim -h                 # check
+   ```
+
+   Do this in every new terminal, after `conda activate dgcode`. Without it, `sb_loki_sim` gives
+   `command not found`. (Alternatively, run single commands as `sbenv sb_loki_sim ...`.)
+
+Run `sb` again after changing C++ code; changes of Python scripts need no rebuild. A first simulation is in
+[](simulation.md#a-first-simulation).
 
 Useful `sb` options ([sb documentation](https://mctools.github.io/simplebuild/cmdline.html#the-sb-command)):
 
@@ -32,7 +43,20 @@ Useful `sb` options ([sb documentation](https://mctools.github.io/simplebuild/cm
 | `sb -c` (`--clean`) | Remove the build and install directories. |
 | `sb -s` (`--show`) | Show the configuration. |
 
-Every simulation and analysis command has a `-h` option listing its options.
+The simulation commands and the Python tools have a `-h` option listing their options (the analysis programs
+`sb_loki_ana` and `sb_lokimasking_ana` take only GRIFF files; `sb_loki_ana` also `--nodetfile`).
+
+## loki-geometry (optional)
+
+[loki-geometry](https://github.com/MilanKlausz/loki-geometry) is a separate Python package (Python ≥ 3.9 and numpy)
+that computes the surveyed bank calibrations (the `G4GeoLoki/data` files) and the pixel geometry of the instrument's
+NeXus-JSON file (`loki-pixel-json`, used in [](geometry.md#verification)). It is needed only for those tasks, and can
+be installed in its own environment (the Geant4 tools only read its output files):
+
+```sh
+git clone https://github.com/MilanKlausz/loki-geometry.git
+python3 -m venv lg-venv && lg-venv/bin/pip install ./loki-geometry
+```
 
 ## McStas
 
@@ -73,14 +97,14 @@ available:
   mkdir -p $HOME/mantidpythonsymlink
   ln -sf /Applications/MantidWorkbench.app/Contents/Resources/bin/python $HOME/mantidpythonsymlink/mantidpython
   export PATH="$HOME/mantidpythonsymlink:$PATH"
-  export PYTHONPATH="$PYTHONPATH:/Applications/MantidWorkbench.app/Contents/Resources/bin:<path to dgcode_projects>/install/python"
+  export PYTHONPATH="$PYTHONPATH:/Applications/MantidWorkbench.app/Contents/Resources/bin:<path to dgcode_projects>/simplebuild_cache/install/python"
   ```
 
 Put the commands in `~/.bashrc` (or `~/.bash_profile`) to have them in every terminal, and run `sb` again to build
 LokiMantid.
 
 The conversion is also available as a Mantid algorithm, `LoadLokiDetectionEvents`: in Mantid, add the
-`dgcode_projects/install/python/` directory to the Python script directories (File → Manage User Directories →
+`dgcode_projects/simplebuild_cache/install/python/` directory to the Python script directories (File → Manage User Directories →
 Python Script Directories; without it: `ModuleNotFoundError: No module named 'LokiMantid'`), then open and run
 `dgcode_projects/LOKI/LokiMantid/python/lokiAlgorithm.py` to register the algorithm.
 
