@@ -1,0 +1,15 @@
+1. spectrum table and energy sampling
+  121 bins, 1e-05 - 1.20e+07 eV; 0.3795 neutrons through the side per source neutron
+  0 - 0.5 eV: table 24.1%, sampled 24.2%
+  OK: sampled fraction as in the table
+  0.5 - 100000 eV: table 15.2%, sampled 15.1%
+  OK: sampled fraction as in the table
+  100000 - 1e+09 eV: table 60.8%, sampled 60.7%
+  OK: sampled fraction as in the table
+  below 100 keV: 39.2% of the neutrons; sampled maximum 9.98e+04 eV
+  OK: the energy range is respected
+2. short simulation with event_gen=ambe
+  OK: the simulation runs
+  1000 neutrons: distance from the axis 11.500 - 11.500 cm, height -13.5 - 13.5 cm, mean cos to the outward normal 0.51
+  OK: on the side surface of the cylinder (radius 11.5 cm, height 27 cm)
+  OK: isotropic in the outward hemisphere

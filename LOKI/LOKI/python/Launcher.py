@@ -36,7 +36,11 @@ def launch(geo):
           gen.input_file = launcher.getParameterString('input_file')
           tmp_myfile = mcpl.MCPLFile(gen.getParameterString('input_file'))
           for blobkey in tmp_myfile.blobs:
-            launcher.setUserData(blobkey, str(tmp_myfile.blobs[blobkey].decode("utf-8")))
+            try:
+              blobvalue = tmp_myfile.blobs[blobkey].decode("utf-8")
+            except UnicodeDecodeError:
+              continue  # a binary blob (e.g. the configuration stored by the MCPL writer of dgcode): not user data
+            launcher.setUserData(blobkey, str(blobvalue))
 
           gen.dz_meter = 0.2 #default nominal sample position to mcpl_output mcstas component distance. New mcpl files store this value with the 'sample_mcpl_distance_m' key, the default is needed for older mcpl files
           if('sample_mcpl_distance_m' in tmp_myfile.blobs):
@@ -79,6 +83,12 @@ def launch(geo):
         gen = Gen()
     elif launcher.getParameterString('event_gen')=='isotheta':
         from  LOKI.IsoThetaGen import IsoThetaGen as Gen
+        gen = Gen()
+    elif launcher.getParameterString('event_gen')=='ambe':
+        # AmBe source in a cylindrical HDPE moderator: neutrons from the side surface of the moderator, with the
+        # spectrum of the neutrons leaving it (LOKI/data table), e.g. the source tests of October 2026:
+        #   event_gen=ambe x_meters=-0.135 y_meters=0.065 z_meters=1.677 [max_energy_eV=1e5]
+        from LOKI.AmBeSourceGen import AmBeSourceGen as Gen
         gen = Gen()
     else:
         import G4StdGenerators.FlexGen as Gen
