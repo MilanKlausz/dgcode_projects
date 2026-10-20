@@ -4,7 +4,9 @@ The neutrons start on the curved side surface of the moderator cylinder (vertica
 uniform in height and around the axis), with an isotropic direction in the outward hemisphere, and an energy sampled
 from the spectrum of the neutrons leaving the moderator through its side (a table in LOKI/data, from a Geant4
 simulation of the AmBe source in the moderator: see the header of the table). The moderator itself is not in the
-geometry. Neutrons leaving through the top and bottom are not generated.
+geometry. Neutrons leaving through the top and bottom are not generated. The tables of LOKI/data are for moderator
+diameters of 8 to 34 cm (ambe_hdpe_d<diameter>cm_side_spectrum.txt, height 27 cm); the moderator radius and height
+are taken from the header of the table unless given.
 
 Normalisation: one generated neutron corresponds to 1 / (side yield x sampled fraction) source neutrons, with the side
 yield (neutrons through the side per source neutron) and the fraction of it in the sampled energy range printed at
@@ -12,6 +14,7 @@ the start (an AmBe source of 1 Ci emits ~2.2e6 neutrons per second).
 """
 import bisect
 import math
+import re
 
 import G4CustomPyGen
 from Core import FindData
@@ -29,6 +32,17 @@ def read_spectrum(path):
                 a, b, v = (float(x) for x in line.split())
                 low.append(a), high.append(b), value.append(v)
     return low, high, value
+
+
+def read_moderator_size(path):
+    """(radius, height) [cm] of the moderator of a spectrum table (its header line "# Moderator: diameter D cm,
+    height H cm"); None if the table has no such line."""
+    with open(path) as table:
+        for line in table:
+            match = re.match(r"#\s*Moderator: diameter ([0-9.eE+-]+) cm, height ([0-9.eE+-]+) cm", line)
+            if match:
+                return 0.5 * float(match.group(1)), float(match.group(2))
+    return None
 
 
 class EnergySampler:
@@ -66,9 +80,9 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         self.addParameterDouble("x_meters", 0.0)
         self.addParameterDouble("y_meters", 0.0)
         self.addParameterDouble("z_meters", 0.0)
-        # the moderator (the dimensions of the moderator of the spectrum table)
-        self.addParameterDouble("moderator_radius_cm", 11.5)
-        self.addParameterDouble("moderator_height_cm", 27.0)
+        # the moderator [cm] (-1: from the header of the spectrum table)
+        self.addParameterDouble("moderator_radius_cm", -1.0)
+        self.addParameterDouble("moderator_height_cm", -1.0)
         # the spectrum table (in the LOKI data, or a path) and the energy range to generate [eV]
         self.addParameterString("spectrum_file", DEFAULT_SPECTRUM)
         self.addParameterDouble("min_energy_eV", 0.0)
@@ -79,15 +93,21 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         name = self.spectrum_file
         path = name if "/" in name else FindData("LOKI", name)
         self._sampler = EnergySampler(*read_spectrum(path), self.min_energy_eV, self.max_energy_eV)
+        size = read_moderator_size(path)
+        self._radius_cm = self.moderator_radius_cm if self.moderator_radius_cm > 0 else (size or (None, None))[0]
+        self._height_cm = self.moderator_height_cm if self.moderator_height_cm > 0 else (size or (None, None))[1]
+        if self._radius_cm is None or self._height_cm is None:
+            raise ValueError(f"AmBeSourceGen: give moderator_radius_cm and moderator_height_cm (not in {name})")
         print(f"AmBeSourceGen: spectrum {name}: {self._sampler.total:.4f} neutrons through the moderator side per "
               f"source neutron, {self._sampler.selected / self._sampler.total * 100:.2f}% of them in "
-              f"{self.min_energy_eV:g} - {self.max_energy_eV:g} eV (generated)")
+              f"{self.min_energy_eV:g} - {self.max_energy_eV:g} eV (generated); moderator radius {self._radius_cm:g} cm, "
+              f"height {self._height_cm:g} cm")
 
     def generate_event(self, gun):
         phi = 2.0 * math.pi * self.rand()
         normal = (math.cos(phi), 0.0, math.sin(phi))  # outward normal of the side surface
-        y = (self.rand() - 0.5) * self.moderator_height_cm
-        r = self.moderator_radius_cm
+        y = (self.rand() - 0.5) * self._height_cm
+        r = self._radius_cm
         gun.set_position(self.x_meters * units.m + r * normal[0] * units.cm,
                          self.y_meters * units.m + y * units.cm,
                          self.z_meters * units.m + r * normal[2] * units.cm)

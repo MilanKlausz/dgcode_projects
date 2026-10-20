@@ -3,7 +3,9 @@
 # The AmBe source of the LOKI simulation (event_gen=ambe): neutrons from the side surface of the moderator cylinder
 # with the spectrum of the LOKI/data table.
 #  1. the table and the energy sampling (all energies, and a restricted range);
-#  2. a short simulation: the neutrons start on the side surface of the cylinder at the given position, going outwards.
+#  2. the tables for the different moderator diameters;
+#  3. short simulations: the neutrons start on the side surface of the cylinder at the given position, going outwards,
+#     with the moderator size of the table.
 
 import random
 import subprocess
@@ -37,7 +39,17 @@ energies = np.array([slow.sample(rng.random(), rng.random()) for _ in range(1000
 print(f"  below 100 keV: {slow.selected / slow.total * 100:.1f}% of the neutrons; sampled maximum {energies.max():.3g} eV")
 check(energies.max() <= 1e5, "the energy range is respected")
 
-print("2. short simulation with event_gen=ambe")
+print("2. the tables of LOKI/data (moderator size from the header, side yield, thermal fraction)")
+import glob, os
+for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LOKI', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_d*cm_side_spectrum.txt')),
+                   key=lambda p: float(os.path.basename(p)[len('ambe_hdpe_d'):-len('cm_side_spectrum.txt')])):
+    a, b, v = (np.array(x) for x in gen.read_spectrum(path))
+    radius, height = gen.read_moderator_size(path)
+    print(f"  {os.path.basename(path)}: radius {radius:g} cm, height {height:g} cm, {v.sum():.3f} per source neutron "
+          f"through the side, thermal (< 0.5 eV) {v[b <= 0.5].sum():.3f}")
+    check(f"d{2 * radius:g}cm" in os.path.basename(path), "the file name matches the header")
+
+print("3. short simulations with event_gen=ambe")
 centre = np.array([-13.5, 6.5, 167.7])  # [cm]
 sim = subprocess.run(['sb_loki_sim', '-n', '1000', '-s', '1', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
                       'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', '--mcpl=grabsrc to src'],
@@ -54,4 +66,10 @@ print(f"  {len(pos)} neutrons: distance from the axis {radius.min():.3f} - {radi
 check(len(pos) == 1000 and np.allclose(radius, 11.5, atol=1e-3) and np.all(np.abs(pos[:, 1]) <= 13.5 + 1e-3),
       "on the side surface of the cylinder (radius 11.5 cm, height 27 cm)")
 check(np.all(cos_normal >= -1e-6) and abs(cos_normal.mean() - 0.5) < 0.05, "isotropic in the outward hemisphere")
+sim = subprocess.run(['sb_loki_sim', '-n', '100', '-s', '2', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
+                      'spectrum_file=ambe_hdpe_d16cm_side_spectrum.txt', '--mcpl=grabsrc to src16'], capture_output=True, text=True)
+pos = np.concatenate([pb.position for pb in mcpl.MCPLFile('src16.mcpl.gz').particle_blocks]).astype(float)
+print(f"  with the 16 cm table: distance from the axis {np.hypot(pos[:, 0], pos[:, 2]).min():.3f} - "
+      f"{np.hypot(pos[:, 0], pos[:, 2]).max():.3f} cm")
+check(sim.returncode == 0 and np.allclose(np.hypot(pos[:, 0], pos[:, 2]), 8.0, atol=1e-3), "the radius from the table header")
 sys.exit(1 if failed else 0)
