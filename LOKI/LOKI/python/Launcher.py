@@ -85,8 +85,8 @@ def launch(geo):
         from  LOKI.IsoThetaGen import IsoThetaGen as Gen
         gen = Gen()
     elif launcher.getParameterString('event_gen')=='ambe':
-        # AmBe source in a cylindrical HDPE moderator: neutrons from the side surface of the moderator, with the
-        # spectrum of the neutrons leaving it (LOKI/data table), e.g. the source tests of October 2026:
+        # AmBe source in a cylindrical HDPE moderator: neutrons from the surface of the moderator, with the spectra
+        # and angular distributions of the neutrons leaving it (LOKI/data table), e.g. the source tests of October 2026:
         #   event_gen=ambe x_meters=-0.135 y_meters=0.065 z_meters=1.677 [max_energy_eV=1e5]
         from LOKI.AmBeSourceGen import AmBeSourceGen as Gen
         gen = Gen()

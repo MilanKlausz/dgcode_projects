@@ -15,6 +15,9 @@
 #include <cmath>
 #include <string>
 #include <cassert>
+#include <set>
+#include <vector>
+#include <sstream>
 
 #include "G4GeoLoki/BcsBanks.hh"
 
@@ -35,12 +38,75 @@ private:
   G4LogicalVolume * createBankLV(int bankId);
   G4LogicalVolume * createTriangularMaskLV(int maskId);
   G4LogicalVolume * createCalibrationMaskLV(CalibMasks::CalibMasksBase calibMask);
+  bool hasCalibrationSlits(int bankId);
+  bool hasBoronMasks(int bankId);
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
 SBLDPY_MODULE( _GeoBCSBanks ) { G4Interfaces::geoToPy<GeoBCS>( m ); }
 
 namespace {
+  // the banks of a bank list parameter: "all", "none" (or empty), or comma separated ids and ranges, e.g. "0,5-8"
+  std::set<int> parseBankList(const std::string& text, int numberOfBanks = 9) {
+    std::set<int> banks;
+    if (text == "all") {
+      for (int b = 0; b < numberOfBanks; b++)
+        banks.insert(b);
+      return banks;
+    }
+    if (text.empty() || text == "none")
+      return banks;
+    std::stringstream items(text);
+    std::string item;
+    while (std::getline(items, item, ',')) {
+      const auto dash = item.find('-');
+      try {
+        size_t used = 0;
+        const int first = std::stoi(item.substr(0, dash), &used);
+        if (used != item.substr(0, dash).size())
+          throw std::invalid_argument(item);
+        int last = first;
+        if (dash != std::string::npos) {
+          last = std::stoi(item.substr(dash + 1), &used);
+          if (used != item.substr(dash + 1).size())
+            throw std::invalid_argument(item);
+        }
+        if (first < 0 || last >= numberOfBanks || first > last)
+          throw std::out_of_range(item);
+        for (int b = first; b <= last; b++)
+          banks.insert(b);
+      }
+      catch (const std::logic_error&) {
+        throw std::runtime_error("invalid bank list \"" + text + "\" (expected all, none, or ids and ranges such as 0,5-8)");
+      }
+    }
+    return banks;
+  }
+
+  // absorber strips: "bank,x1,y1,z1,x2,y2,z2,width,thickness;..." -> 9 numbers per strip
+  std::vector<std::array<double, 9>> parseAbsorberStrips(const std::string& text) {
+    std::vector<std::array<double, 9>> strips;
+    std::stringstream items(text);
+    std::string item;
+    while (std::getline(items, item, ';')) {
+      if (item.find_first_not_of(" ") == std::string::npos)
+        continue;
+      std::array<double, 9> values;
+      std::stringstream numbers(item);
+      std::string number;
+      size_t n = 0;
+      while (std::getline(numbers, number, ',')) {
+        if (n >= 9)
+          throw std::runtime_error("absorber strip with more than 9 values: " + item);
+        values[n++] = std::stod(number);
+      }
+      if (n != 9 || values[0] < 0 || values[0] > 8 || values[7] <= 0 || values[8] <= 0)
+        throw std::runtime_error("invalid absorber strip (bank,x1,y1,z1,x2,y2,z2,width,thickness): " + item);
+      strips.push_back(values);
+    }
+    return strips;
+  }
+
   // object rotation of a bank (the columns are the bank-local axes in the world)
   G4RotationMatrix toG4Rotation(const BankTransform& transform) {
     const auto& R = transform.rotation;
@@ -59,7 +125,20 @@ GeoBCS::GeoBCS()
   // declare all parameters that can be used from the command line,
   addParameterDouble("rear_detector_distance_m", 5.0, 4.0, 10.0); // default, min, max
   addParameterInt("beamstop_id", 0, 0, 5); // id [1-5] from ESS-1178830 Table 4.6 'Selected beamstop sizes' (0 = no beamstop)
+  // calibration slit masks (94 mm absorber / 6 mm slit, 0.3 mm thick, 7.6 mm in front of the tubes):
+  // calibration_slit_banks: the banks with a slit mask ("all", "none", or e.g. "0" or "0,5-8");
+  // with_calibration_slits=yes is the same as calibration_slit_banks=all (kept for existing scripts)
   addParameterBoolean("with_calibration_slits", false);
+  addParameterString("calibration_slit_banks", "");
+  addParameterString("calibration_slit_material", "MAT_B4C:b10_enrichment=0.95"); // e.g. G4_Cd
+  // the B4C masks of the banks (the rectangular masks of each bank and the triangular masks of banks 5 and 7; not the
+  // beamstop): "all" (the design), "none", or a bank list as above
+  addParameterString("boron_mask_banks", "all");
+  // absorber strips on the front faces of banks (e.g. the B4C sheets taped on the banks in source tests):
+  // "bank,x1,y1,z1,x2,y2,z2,width,thickness;..." [mm], the strip from the point 1 to the point 2 (world coordinates,
+  // projected on the plane just in front of the tubes of the bank), width and thickness of the strip
+  addParameterString("absorber_strips", "");
+  addParameterString("absorber_strip_material", "MAT_B4C");
 
   // bank placements: "nominal-geant4-geometry" or the name of a calibration in G4GeoLoki/data/bank_calibration_<name>.txt
   // (or the path of such a file), see G4GeoLoki/BankCalibration.hh
@@ -139,6 +218,7 @@ G4LogicalVolume *GeoBCS::createCalibrationMaskLV(CalibMasks::CalibMasksBase cali
   const double maskFullWidthHalf = 0.5*calibMask.getWidth();
 
   auto lv_calibrationMask = new G4LogicalVolume(new G4Box("EmptyCalibMaskBox", maskThicknessHalf, maskHeightHalf, maskFullWidthHalf), CalibMasks::maskBoxMaterial, "CalibMaskBox");
+  auto slitMaterial = getParameterMaterial("calibration_slit_material");
 
   double offset = 0.0;
   int i = 0;
@@ -147,7 +227,7 @@ G4LogicalVolume *GeoBCS::createCalibrationMaskLV(CalibMasks::CalibMasksBase cali
     const double partWidth = *part;
     if(i % 2 == 0) { //The pattern is: maskPart ,slit, maskPart, slit...
       place(new G4Box(maskName, maskThicknessHalf, maskHeightHalf, 0.5*partWidth),
-          CalibMasks::maskMaterial,
+          slitMaterial,
           0., 0., -maskFullWidthHalf + offset + 0.5*partWidth,
           lv_calibrationMask, DARKPURPLE, -5, 0, new G4RotationMatrix());
     }
@@ -191,7 +271,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
           lv_bank, G4Colour(0, 1, 1), -2, 0, new G4RotationMatrix(0, 0, packRotation));
   }
 
-  const int numberOfBoronMasks = BoronMasks::getNumberOfBoronMasks(bankId);
+  const int numberOfBoronMasks = hasBoronMasks(bankId) ? BoronMasks::getNumberOfBoronMasks(bankId) : 0;
   for (int maskId = 0; maskId < numberOfBoronMasks; ++maskId){
     const std::string maskName = "BoronMask-"+std::to_string(bankId)+"-"+std::to_string(maskId);
     const auto maskSize = BoronMasks::getSizeInBankFrame(bankId, maskId);
@@ -228,8 +308,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
           lv_bank, BLACK, -5, 0, new G4RotationMatrix());
   }
 
-  const bool withCalibrationSlits = getParameterBoolean("with_calibration_slits");
-  if (withCalibrationSlits) {
+  if (hasCalibrationSlits(bankId)) {
     std::string calibMaskName = "lokiStandard-"+std::to_string(bankId);
     const auto calibMask = CalibMasks::getCalibMask(calibMaskName);
     auto lv_calibrationMask = createCalibrationMaskLV(calibMask);
@@ -237,6 +316,26 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     const auto calibMaskPosition = banks->getCalibMaskPositionInBankFrame(calibMask, bankId);
     place(lv_calibrationMask, calibMaskPosition[0], calibMaskPosition[1], calibMaskPosition[2],
           lv_bank, PURPLE, -5, 0, new G4RotationMatrix());
+  }
+
+  // Absorber strips on the front face of the bank (in the bank frame: x = depth, y = across the tubes, z = along them)
+  for (const auto& strip : parseAbsorberStrips(getParameterString("absorber_strips"))) {
+    if (static_cast<int>(strip[0]) != bankId)
+      continue;
+    const double width = strip[7], thickness = strip[8];
+    const BankTransform transform = banks->getBankTransform(bankId);
+    const auto p1 = transform.toLocal({strip[1], strip[2], strip[3]});
+    const auto p2 = transform.toLocal({strip[4], strip[5], strip[6]});
+    // the depth of a slit mask of this thickness 0.5 mm in front of the tubes
+    const CalibMasks::CalibMasksBase plane("strip", thickness, width, 0.0, 0.5, {width});
+    const double depth = banks->getCalibMaskPositionInBankFrame(plane, bankId)[0];
+    const double dy = p2[1] - p1[1], dz = p2[2] - p1[2];
+    const double length = std::sqrt(dy * dy + dz * dz);
+    // the box: thickness along x, width along y, length along z; its z axis turned to the strip direction (frame rotation)
+    auto rotation = new G4RotationMatrix();
+    rotation->rotateX(std::atan2(dy, dz));
+    place(new G4Box("AbsorberStrip", 0.5 * thickness, 0.5 * width, 0.5 * length), getParameterMaterial("absorber_strip_material"),
+          depth, 0.5 * (p1[1] + p2[1]), 0.5 * (p1[2] + p2[2]), lv_bank, BLACK, -6, 0, rotation);
   }
 
   // An enlarged notch must not cut into the content of the bank (packs, masks): it is only meant to remove empty
@@ -332,6 +431,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 
   // Add 4 triangular boron masks (added to the World instead of the banks)
   for (int maskId = 0; maskId <= 3; maskId++) {
+    if (!hasBoronMasks(BoronMasks::getBankIdOfTriangularMask(maskId)))
+      continue;
     auto lv_triangularMask = createTriangularMaskLV(maskId);
 
     // mounted on the front of bank 5 or 7: its placement in the bank frame, moved with the bank transform
@@ -353,6 +454,16 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 }
 
 
+bool GeoBCS::hasCalibrationSlits(int bankId) {
+  if (getParameterBoolean("with_calibration_slits"))
+    return true;
+  return parseBankList(getParameterString("calibration_slit_banks")).count(bankId) > 0;
+}
+
+bool GeoBCS::hasBoronMasks(int bankId) {
+  return parseBankList(getParameterString("boron_mask_banks")).count(bankId) > 0;
+}
+
 bool GeoBCS::validateParameters() {
   // you can apply conditions to control the sanity of the geometry parameters and warn the user of possible mistakes
   // a nice example: Projects/SingleCell/G4GeoSingleCell/libsrc/GeoB10SingleCell.cc
@@ -363,6 +474,19 @@ bool GeoBCS::validateParameters() {
   }
   catch (const std::exception& error) {
     printf("ERROR: Wrong bank_calibration value: %s\n", error.what());
+    return false;
+  }
+  try {
+    parseBankList(getParameterString("calibration_slit_banks"));
+    parseBankList(getParameterString("boron_mask_banks"));
+    parseAbsorberStrips(getParameterString("absorber_strips"));
+  }
+  catch (const std::exception& error) {
+    printf("ERROR: %s\n", error.what());
+    return false;
+  }
+  if (getParameterBoolean("with_calibration_slits") && !parseBankList(getParameterString("calibration_slit_banks")).empty()) {
+    printf("ERROR: give either with_calibration_slits=yes (all banks) or calibration_slit_banks, not both\n");
     return false;
   }
   if(rear_detector_distance < 5.0 *Units::m) {

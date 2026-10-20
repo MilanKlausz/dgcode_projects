@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-# The AmBe source of the LOKI simulation (event_gen=ambe): neutrons from the side surface of the moderator cylinder
-# with the spectrum of the LOKI/data table.
-#  1. the table and the energy sampling (all energies, and a restricted range);
+# The AmBe source of the LOKI simulation (event_gen=ambe): neutrons from the surface of the moderator cylinder with the
+# spectra and angular distributions of the LOKI/data table.
+#  1. the table, the energy sampling (all energies, and a restricted range) and the angular sampling;
 #  2. the tables for the different moderator diameters;
-#  3. short simulations: the neutrons start on the side surface of the cylinder at the given position, going outwards,
-#     with the moderator size of the table.
+#  3. short simulations: the neutrons start on the surface of the cylinder at the given position, going outwards, with
+#     the moderator size of the table; the share of each surface; isotropic directions on request.
 
+import glob
+import os
 import random
 import subprocess
 import sys
@@ -21,10 +23,14 @@ def check(ok, message):
     print(f"  {'OK' if ok else 'FAILED'}: {message}")
     failed |= not ok
 
-print("1. spectrum table and energy sampling")
-low, high, value = gen.read_spectrum(FindData('LOKI', gen.DEFAULT_SPECTRUM))
-low, high, value = np.array(low), np.array(high), np.array(value)
-print(f"  {len(value)} bins, {low[0]:.0e} - {high[-1]:.2e} eV; {value.sum():.4f} neutrons through the side per source neutron")
+print("1. table, energy and angular sampling")
+low, high, spectra, angular = gen.read_table(FindData('LOKI', gen.DEFAULT_SPECTRUM))
+low, high = np.array(low), np.array(high)
+yields = {s: np.array(v).sum() for s, v in spectra.items()}
+print(f"  {len(low)} bins, {low[0]:.0e} - {high[-1]:.2e} eV; neutrons per source neutron: "
+      + ", ".join(f"{s} {y:.4f}" for s, y in yields.items()))
+check(sorted(spectra) == sorted(gen.SURFACES) and sorted(angular) == sorted(gen.SURFACES), "spectra and angular distributions of the side, top and bottom")
+value = np.array(spectra['side'])
 rng = random.Random(1)
 sampler = gen.EnergySampler(low, high, value)
 energies = np.array([sampler.sample(rng.random(), rng.random()) for _ in range(100000)])
@@ -32,44 +38,69 @@ for lo, hi in ((0, 0.5), (0.5, 1e5), (1e5, 1e9)):
     expected = sum(v * max(0.0, np.log(min(b, hi) / max(a, lo))) / np.log(b / a)
                    for a, b, v in zip(low, high, value) if v > 0 and min(b, hi) > max(a, lo)) / value.sum()
     sampled = np.mean((energies >= lo) & (energies < hi))
-    print(f"  {lo:g} - {hi:g} eV: table {expected * 100:.1f}%, sampled {sampled * 100:.1f}%")
+    print(f"  side, {lo:g} - {hi:g} eV: table {expected * 100:.1f}%, sampled {sampled * 100:.1f}%")
     check(abs(sampled - expected) < 0.005, "sampled fraction as in the table")
 slow = gen.EnergySampler(low, high, value, 0.0, 1e5)
 energies = np.array([slow.sample(rng.random(), rng.random()) for _ in range(10000)])
 print(f"  below 100 keV: {slow.selected / slow.total * 100:.1f}% of the neutrons; sampled maximum {energies.max():.3g} eV")
 check(energies.max() <= 1e5, "the energy range is respected")
+ang = gen.AngularSampler(angular['side'])
+for lo, hi, fractions in angular['side']:
+    e = np.sqrt(max(lo, 1e-3) * hi) if hi < 1e8 else 5e6
+    c = np.array([ang.sample(e, rng.random(), rng.random()) for _ in range(20000)])
+    centres = (np.arange(len(fractions)) + 0.5) / len(fractions)
+    expected = np.sum(np.array(fractions) * centres) / np.sum(fractions)
+    print(f"  side, {lo:g} - {hi:g} eV: mean cos to the normal: table {expected:.3f}, sampled {c.mean():.3f}")
+    check(abs(c.mean() - expected) < 0.01 and c.min() >= 0 and c.max() <= 1, "sampled angular distribution as in the table")
 
-print("2. the tables of LOKI/data (moderator size from the header, side yield, thermal fraction)")
-import glob, os
-for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LOKI', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_d*cm_side_spectrum.txt')),
-                   key=lambda p: float(os.path.basename(p)[len('ambe_hdpe_d'):-len('cm_side_spectrum.txt')])):
-    a, b, v = (np.array(x) for x in gen.read_spectrum(path))
+print("2. the tables of LOKI/data (moderator size from the header, yields, thermal fraction)")
+for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LOKI', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_d*cm_spectrum.txt')),
+                   key=lambda p: float(os.path.basename(p)[len('ambe_hdpe_d'):-len('cm_spectrum.txt')])):
+    a, b, s, _ = gen.read_table(path)
+    b = np.array(b)
     radius, height = gen.read_moderator_size(path)
-    print(f"  {os.path.basename(path)}: radius {radius:g} cm, height {height:g} cm, {v.sum():.3f} per source neutron "
-          f"through the side, thermal (< 0.5 eV) {v[b <= 0.5].sum():.3f}")
+    side, top, bottom = (np.array(s[k]) for k in gen.SURFACES)
+    print(f"  {os.path.basename(path)}: radius {radius:g} cm, height {height:g} cm; per source neutron through the side "
+          f"{side.sum():.3f} (thermal {side[b <= 0.5].sum():.3f}), top {top.sum():.3f}, bottom {bottom.sum():.3f}")
     check(f"d{2 * radius:g}cm" in os.path.basename(path), "the file name matches the header")
 
 print("3. short simulations with event_gen=ambe")
 centre = np.array([-13.5, 6.5, 167.7])  # [cm]
-sim = subprocess.run(['sb_loki_sim', '-n', '1000', '-s', '1', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
-                      'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', '--mcpl=grabsrc to src'],
-                     capture_output=True, text=True)
-check(sim.returncode == 0, "the simulation runs")
-src = mcpl.MCPLFile('src.mcpl.gz')
-pos = np.concatenate([pb.position for pb in src.particle_blocks]).astype(float) - centre  # [cm]
-direction = np.concatenate([pb.direction for pb in src.particle_blocks]).astype(float)
+
+
+def source(name, n, seed, *pars):
+    sim = subprocess.run(['sb_loki_sim', '-n', str(n), '-s', str(seed), 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
+                          'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', f'--mcpl=grabsrc to {name}', *pars],
+                         capture_output=True, text=True)
+    check(sim.returncode == 0, "the simulation runs")
+    f = mcpl.MCPLFile(f'{name}.mcpl.gz')
+    pos = np.concatenate([pb.position for pb in f.particle_blocks]).astype(float) - centre  # [cm]
+    direction = np.concatenate([pb.direction for pb in f.particle_blocks]).astype(float)
+    return pos, direction
+
+
+pos, direction = source('src', 2000, 1)
 radius = np.hypot(pos[:, 0], pos[:, 2])
-normal = np.column_stack([pos[:, 0] / radius, np.zeros(len(pos)), pos[:, 2] / radius])
+on_side = np.isclose(radius, 11.5, atol=1e-3) & (np.abs(pos[:, 1]) <= 13.5 + 1e-3)
+on_top = np.isclose(pos[:, 1], 13.5, atol=1e-3) & (radius <= 11.5 + 1e-3)
+on_bottom = np.isclose(pos[:, 1], -13.5, atol=1e-3) & (radius <= 11.5 + 1e-3)
+normal = np.where(on_side[:, None], np.column_stack([pos[:, 0] / radius, np.zeros(len(pos)), pos[:, 2] / radius]),
+                  np.column_stack([np.zeros(len(pos)), np.sign(pos[:, 1]), np.zeros(len(pos))]))
 cos_normal = np.sum(direction * normal, axis=1)
-print(f"  {len(pos)} neutrons: distance from the axis {radius.min():.3f} - {radius.max():.3f} cm, height {pos[:, 1].min():.1f} - "
-      f"{pos[:, 1].max():.1f} cm, mean cos to the outward normal {cos_normal.mean():.2f}")
-check(len(pos) == 1000 and np.allclose(radius, 11.5, atol=1e-3) and np.all(np.abs(pos[:, 1]) <= 13.5 + 1e-3),
-      "on the side surface of the cylinder (radius 11.5 cm, height 27 cm)")
-check(np.all(cos_normal >= -1e-6) and abs(cos_normal.mean() - 0.5) < 0.05, "isotropic in the outward hemisphere")
-sim = subprocess.run(['sb_loki_sim', '-n', '100', '-s', '2', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
-                      'spectrum_file=ambe_hdpe_d16cm_side_spectrum.txt', '--mcpl=grabsrc to src16'], capture_output=True, text=True)
-pos = np.concatenate([pb.position for pb in mcpl.MCPLFile('src16.mcpl.gz').particle_blocks]).astype(float)
+side_share = yields['side'] / sum(yields.values())
+print(f"  {len(pos)} neutrons: side {on_side.mean() * 100:.1f}% (table {side_share * 100:.1f}%), top {on_top.mean() * 100:.1f}%, "
+      f"bottom {on_bottom.mean() * 100:.1f}%; mean cos to the outward normal {cos_normal.mean():.2f}")
+check(len(pos) == 2000 and np.all(on_side | on_top | on_bottom), "on the surface of the cylinder (radius 11.5 cm, height 27 cm)")
+check(abs(on_side.mean() - side_share) < 0.03 and abs(on_top.mean() - on_bottom.mean()) < 0.03, "the share of each surface as in the table")
+check(np.all(cos_normal >= -1e-6) and cos_normal.mean() > 0.7, "going outwards, peaked along the normal")
+pos, direction = source('srciso', 1000, 3, 'surfaces=side', 'angular_distribution=isotropic')
+radius = np.hypot(pos[:, 0], pos[:, 2])
+cos_normal = np.sum(direction * np.column_stack([pos[:, 0] / radius, np.zeros(len(pos)), pos[:, 2] / radius]), axis=1)
+print(f"  side only, isotropic: distance from the axis {radius.min():.3f} - {radius.max():.3f} cm, mean cos to the outward normal {cos_normal.mean():.2f}")
+check(np.allclose(radius, 11.5, atol=1e-3) and np.all(cos_normal >= -1e-6) and abs(cos_normal.mean() - 0.5) < 0.05,
+      "on the side, isotropic in the outward hemisphere")
+pos, _ = source('src16', 100, 2, 'spectrum_file=ambe_hdpe_d16cm_spectrum.txt', 'surfaces=side')
 print(f"  with the 16 cm table: distance from the axis {np.hypot(pos[:, 0], pos[:, 2]).min():.3f} - "
       f"{np.hypot(pos[:, 0], pos[:, 2]).max():.3f} cm")
-check(sim.returncode == 0 and np.allclose(np.hypot(pos[:, 0], pos[:, 2]), 8.0, atol=1e-3), "the radius from the table header")
+check(np.allclose(np.hypot(pos[:, 0], pos[:, 2]), 8.0, atol=1e-3), "the radius from the table header")
 sys.exit(1 if failed else 0)

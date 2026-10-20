@@ -1,34 +1,50 @@
-1. spectrum table and energy sampling
-  121 bins, 1e-05 - 1.20e+07 eV; 0.3781 neutrons through the side per source neutron
-  0 - 0.5 eV: table 24.1%, sampled 24.3%
+1. table, energy and angular sampling
+  121 bins, 1e-05 - 1.20e+07 eV; neutrons per source neutron: side 0.3781, top 0.0422, bottom 0.0422
+  OK: spectra and angular distributions of the side, top and bottom
+  side, 0 - 0.5 eV: table 24.1%, sampled 24.3%
   OK: sampled fraction as in the table
-  0.5 - 100000 eV: table 15.2%, sampled 15.2%
+  side, 0.5 - 100000 eV: table 15.2%, sampled 15.2%
   OK: sampled fraction as in the table
-  100000 - 1e+09 eV: table 60.6%, sampled 60.6%
+  side, 100000 - 1e+09 eV: table 60.6%, sampled 60.6%
   OK: sampled fraction as in the table
   below 100 keV: 39.4% of the neutrons; sampled maximum 9.98e+04 eV
   OK: the energy range is respected
-2. the tables of LOKI/data (moderator size from the header, side yield, thermal fraction)
-  ambe_hdpe_d8cm_side_spectrum.txt: radius 4 cm, height 27 cm, 0.936 per source neutron through the side, thermal (< 0.5 eV) 0.077
+  side, 0 - 0.5 eV: mean cos to the normal: table 0.711, sampled 0.708
+  OK: sampled angular distribution as in the table
+  side, 0.5 - 100000 eV: mean cos to the normal: table 0.714, sampled 0.717
+  OK: sampled angular distribution as in the table
+  side, 100000 - 1e+06 eV: mean cos to the normal: table 0.734, sampled 0.735
+  OK: sampled angular distribution as in the table
+  side, 1e+06 - 3e+06 eV: mean cos to the normal: table 0.806, sampled 0.807
+  OK: sampled angular distribution as in the table
+  side, 3e+06 - 1e+09 eV: mean cos to the normal: table 0.872, sampled 0.873
+  OK: sampled angular distribution as in the table
+2. the tables of LOKI/data (moderator size from the header, yields, thermal fraction)
+  ambe_hdpe_d8cm_spectrum.txt: radius 4 cm, height 27 cm; per source neutron through the side 0.936 (thermal 0.077), top 0.006, bottom 0.006
   OK: the file name matches the header
-  ambe_hdpe_d12cm_side_spectrum.txt: radius 6 cm, height 27 cm, 0.801 per source neutron through the side, thermal (< 0.5 eV) 0.127
+  ambe_hdpe_d12cm_spectrum.txt: radius 6 cm, height 27 cm; per source neutron through the side 0.801 (thermal 0.127), top 0.014, bottom 0.014
   OK: the file name matches the header
-  ambe_hdpe_d16cm_side_spectrum.txt: radius 8 cm, height 27 cm, 0.634 per source neutron through the side, thermal (< 0.5 eV) 0.133
+  ambe_hdpe_d16cm_spectrum.txt: radius 8 cm, height 27 cm; per source neutron through the side 0.634 (thermal 0.133), top 0.025, bottom 0.025
   OK: the file name matches the header
-  ambe_hdpe_d20cm_side_spectrum.txt: radius 10 cm, height 27 cm, 0.479 per source neutron through the side, thermal (< 0.5 eV) 0.111
+  ambe_hdpe_d20cm_spectrum.txt: radius 10 cm, height 27 cm; per source neutron through the side 0.479 (thermal 0.111), top 0.035, bottom 0.035
   OK: the file name matches the header
-  ambe_hdpe_d23cm_side_spectrum.txt: radius 11.5 cm, height 27 cm, 0.378 per source neutron through the side, thermal (< 0.5 eV) 0.091
+  ambe_hdpe_d23cm_spectrum.txt: radius 11.5 cm, height 27 cm; per source neutron through the side 0.378 (thermal 0.091), top 0.042, bottom 0.042
   OK: the file name matches the header
-  ambe_hdpe_d26cm_side_spectrum.txt: radius 13 cm, height 27 cm, 0.298 per source neutron through the side, thermal (< 0.5 eV) 0.073
+  ambe_hdpe_d26cm_spectrum.txt: radius 13 cm, height 27 cm; per source neutron through the side 0.298 (thermal 0.073), top 0.048, bottom 0.048
   OK: the file name matches the header
-  ambe_hdpe_d30cm_side_spectrum.txt: radius 15 cm, height 27 cm, 0.216 per source neutron through the side, thermal (< 0.5 eV) 0.051
+  ambe_hdpe_d30cm_spectrum.txt: radius 15 cm, height 27 cm; per source neutron through the side 0.216 (thermal 0.051), top 0.055, bottom 0.056
   OK: the file name matches the header
-  ambe_hdpe_d34cm_side_spectrum.txt: radius 17 cm, height 27 cm, 0.155 per source neutron through the side, thermal (< 0.5 eV) 0.036
+  ambe_hdpe_d34cm_spectrum.txt: radius 17 cm, height 27 cm; per source neutron through the side 0.155 (thermal 0.036), top 0.061, bottom 0.061
   OK: the file name matches the header
 3. short simulations with event_gen=ambe
   OK: the simulation runs
-  1000 neutrons: distance from the axis 11.500 - 11.500 cm, height -13.5 - 13.5 cm, mean cos to the outward normal 0.51
-  OK: on the side surface of the cylinder (radius 11.5 cm, height 27 cm)
-  OK: isotropic in the outward hemisphere
+  2000 neutrons: side 82.8% (table 81.8%), top 8.6%, bottom 8.6%; mean cos to the outward normal 0.78
+  OK: on the surface of the cylinder (radius 11.5 cm, height 27 cm)
+  OK: the share of each surface as in the table
+  OK: going outwards, peaked along the normal
+  OK: the simulation runs
+  side only, isotropic: distance from the axis 11.500 - 11.500 cm, mean cos to the outward normal 0.50
+  OK: on the side, isotropic in the outward hemisphere
+  OK: the simulation runs
   with the 16 cm table: distance from the axis 8.000 - 8.000 cm
   OK: the radius from the table header
