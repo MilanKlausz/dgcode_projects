@@ -103,4 +103,23 @@ pos, _ = source('src16', 100, 2, 'spectrum_file=ambe_hdpe_d16cm_spectrum.txt', '
 print(f"  with the 16 cm table: distance from the axis {np.hypot(pos[:, 0], pos[:, 2]).min():.3f} - "
       f"{np.hypot(pos[:, 0], pos[:, 2]).max():.3f} cm")
 check(np.allclose(np.hypot(pos[:, 0], pos[:, 2]), 8.0, atol=1e-3), "the radius from the table header")
+print("4. direction biasing (aim_half_angle_deg): the mean weight = the fraction of the unbiased directions in the cone")
+aim = np.array([0.0, 6.5, 1000.0])  # [cm], the cone axis from each start point to this point
+pos, direction = source('srcunb', 20000, 4, 'surfaces=side')
+w_unb = None
+axis = aim - (pos + centre); axis /= np.linalg.norm(axis, axis=1)[:, None]
+inside = np.sum(direction * axis, axis=1) > np.cos(np.radians(30.0))
+sim = subprocess.run(['sb_loki_sim', '-n', '5000', '-s', '5', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty', 'surfaces=side',
+                      'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', 'aim_half_angle_deg=30', 'aim_x_meters=0',
+                      'aim_y_meters=0.065', 'aim_z_meters=10', '--mcpl=grabsrc to srcaim'], capture_output=True, text=True)
+check(sim.returncode == 0, "the simulation runs")
+f = mcpl.MCPLFile('srcaim.mcpl.gz')
+pa = np.concatenate([pb.position for pb in f.particle_blocks]).astype(float)
+da = np.concatenate([pb.direction for pb in mcpl.MCPLFile('srcaim.mcpl.gz').particle_blocks]).astype(float)
+wa = np.concatenate([pb.weight for pb in mcpl.MCPLFile('srcaim.mcpl.gz').particle_blocks]).astype(float)
+axa = aim - pa; axa /= np.linalg.norm(axa, axis=1)[:, None]
+frac, err = inside.mean(), np.sqrt(inside.sum()) / len(inside)
+print(f"  unbiased: fraction in the 30 deg cone {frac:.4f} +- {err:.4f}; biased: mean weight {wa.mean():.4f} +- {wa.std() / np.sqrt(len(wa)):.4f}")
+check(np.all(np.sum(da * axa, axis=1) > np.cos(np.radians(30.0)) - 1e-9), "all biased directions in the cone")
+check(abs(wa.mean() - frac) < 4 * np.hypot(err, wa.std() / np.sqrt(len(wa))), "mean weight = unbiased fraction in the cone")
 sys.exit(1 if failed else 0)

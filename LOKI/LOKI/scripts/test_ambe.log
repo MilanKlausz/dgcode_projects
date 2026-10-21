@@ -48,3 +48,9 @@
   OK: the simulation runs
   with the 16 cm table: distance from the axis 8.000 - 8.000 cm
   OK: the radius from the table header
+4. direction biasing (aim_half_angle_deg): the mean weight = the fraction of the unbiased directions in the cone
+  OK: the simulation runs
+  OK: the simulation runs
+  unbiased: fraction in the 30 deg cone 0.1055 +- 0.0023; biased: mean weight 0.1045 +- 0.0026
+  OK: all biased directions in the cone
+  OK: mean weight = unbiased fraction in the cone
