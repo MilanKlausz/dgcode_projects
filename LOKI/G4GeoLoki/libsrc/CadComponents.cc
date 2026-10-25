@@ -6,10 +6,57 @@
 #include <sstream>
 #include <stdexcept>
 
-std::string CadComponents::findFile(const std::string& set) {
+std::string CadComponents::findFile(const std::string& set, const std::string& prefix) {
   if (set.find('/') != std::string::npos)
     return set;
-  return Core::findData("G4GeoLoki", "cad_components_" + set + ".txt");
+  return Core::findData("G4GeoLoki", prefix + set + ".txt");
+}
+
+namespace {
+  std::vector<std::string> setNames(const std::string& sets) {
+    std::vector<std::string> names;
+    std::stringstream items(sets);
+    std::string set;
+    while (std::getline(items, set, ',')) {
+      set.erase(0, set.find_first_not_of(" \t"));
+      set.erase(set.find_last_not_of(" \t") + 1);
+      if (!set.empty())
+        names.push_back(set);
+    }
+    return names;
+  }
+}
+
+std::vector<CadComponents::PackBox> CadComponents::loadPack(const std::string& sets) {
+  std::vector<PackBox> boxes;
+  for (const auto& set : setNames(sets)) {
+    const std::string path = findFile(set, "cad_pack_");
+    if (path.empty())
+      throw std::runtime_error("CadComponents: unknown pack component set '" + set + "' (no data file G4GeoLoki/cad_pack_" + set + ".txt)");
+    std::ifstream file(path);
+    if (!file)
+      throw std::runtime_error("CadComponents: can not open " + path);
+    std::string line;
+    int lineNumber = 0;
+    while (std::getline(file, line)) {
+      lineNumber++;
+      if (line.empty() || line[0] == '#')
+        continue;
+      std::stringstream fields(line);
+      PackBox box;
+      std::string kind;
+      fields >> box.name >> box.material >> box.x0 >> box.x1 >> box.y0 >> box.y1 >> kind >> box.a >> box.b;
+      if (fields.fail() || (kind != "length" && kind != "ends") || box.x1 <= box.x0 || box.y1 <= box.y0
+          || (kind == "ends" && box.b <= box.a))
+        throw std::runtime_error("CadComponents: invalid line " + std::to_string(lineNumber) + " of " + path);
+      box.name = set + ":" + box.name;
+      box.alongLength = (kind == "length");
+      box.x0 *= Units::mm; box.x1 *= Units::mm; box.y0 *= Units::mm; box.y1 *= Units::mm;
+      box.a *= Units::mm; box.b *= Units::mm;
+      boxes.push_back(box);
+    }
+  }
+  return boxes;
 }
 
 std::vector<CadComponents::Box> CadComponents::load(const std::string& sets) {

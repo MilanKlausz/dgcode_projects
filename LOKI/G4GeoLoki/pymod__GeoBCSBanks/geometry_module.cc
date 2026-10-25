@@ -34,6 +34,7 @@ protected:
 private:
   BcsBanks* banks;
   std::vector<CadComponents::Box> cadBoxes; // the boxes of the CAD component sets (cad_components)
+  std::vector<CadComponents::PackBox> cadPackBoxes; // the boxes of the CAD pack component sets (cad_pack_components)
   //Functions
   G4LogicalVolume * createTubeLV(double converter_thickness, double straw_length);
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
@@ -213,6 +214,8 @@ GeoBCS::GeoBCS()
   // list of component sets (data files G4GeoLoki/data/cad_components_<set>.txt, or file paths), e.g.
   // "front_b4c_2021,tufnol"; empty: none. The materials of the components (by their material key):
   addParameterString("cad_components", "");
+  // the same for components of every detector pack (data files G4GeoLoki/data/cad_pack_<set>.txt), e.g. "rail"
+  addParameterString("cad_pack_components", "");
   addParameterString("cad_B4C_material", "MAT_B4C:b10_enrichment=0.95"); // B4C S-DOUGH (82% B4C) parts, as the masks
   addParameterString("cad_Tufnol_material", "G4_BAKELITE");              // Tufnol (phenolic laminate)
   addParameterString("cad_Al_material", "NCrystal:cfg=Al_sg225.ncmat");  // aluminium alloy parts
@@ -277,6 +280,20 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
           BcsPack::getAlPartHorizontalOffset(partId),  BcsPack::getAlPartVerticalOffset(partId), 0,
           lv_pack_box, SILVER, -2, 0, new G4RotationMatrix());
     }
+  /// CAD pack components (cad_pack_components): boxes along the tubes or at both ends ///
+  for (const auto& box : cadPackBoxes) {
+    const std::string name = "CadPack-" + box.material + "-" + box.name;
+    auto material = getParameterMaterial("cad_" + box.material + "_material");
+    const double hx = 0.5 * (box.x1 - box.x0), hy = 0.5 * (box.y1 - box.y0);
+    const double cx = 0.5 * (box.x0 + box.x1), cy = 0.5 * (box.y0 + box.y1);
+    if (box.alongLength) {
+      place(new G4Box(name, hx, hy, 0.5 * strawLength + box.a), material, cx, cy, 0, lv_pack_box, SILVER, -12, 0, new G4RotationMatrix());
+    } else {
+      const double hz = 0.5 * (box.b - box.a), cz = 0.5 * strawLength + 0.5 * (box.a + box.b);
+      for (int side : {1, -1})
+        place(new G4Box(name, hx, hy, hz), material, cx, cy, side * cz, lv_pack_box, SILVER, -12, 0, new G4RotationMatrix());
+    }
+  }
   return lv_pack_box;
 }
 
@@ -497,6 +514,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   auto pvWorld = worldvols.physvol;
 
   cadBoxes = CadComponents::load(getParameterString("cad_components"));
+  cadPackBoxes = CadComponents::loadPack(getParameterString("cad_pack_components"));
 
   // Create and place detector banks
   for (int bankId = 0; bankId < banks->getNumberOfBanks(); bankId++){
@@ -699,6 +717,9 @@ bool GeoBCS::validateParameters() {
       if (box.material != "B4C" && box.material != "Tufnol" && box.material != "Al")
         throw std::runtime_error("CAD component " + box.name + ": unknown material key " + box.material
                                  + " (known: B4C, Tufnol, Al: parameters cad_<key>_material)");
+    for (const auto& box : CadComponents::loadPack(getParameterString("cad_pack_components")))
+      if (box.material != "B4C" && box.material != "Tufnol" && box.material != "Al")
+        throw std::runtime_error("CAD pack component " + box.name + ": unknown material key " + box.material);
   }
   catch (const std::exception& error) {
     printf("ERROR: %s\n", error.what());

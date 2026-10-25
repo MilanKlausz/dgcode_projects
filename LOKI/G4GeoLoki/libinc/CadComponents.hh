@@ -31,8 +31,20 @@ public:
   static std::vector<Box> load(const std::string& sets);
   /// the boxes of one data file
   static std::vector<Box> loadFile(const std::string& fileName, const std::string& setName);
-  /// the data file of a set name (empty if there is none)
-  static std::string findFile(const std::string& set);
+  /// the data file of a set name (empty if there is none); prefix "cad_components_" or "cad_pack_"
+  static std::string findFile(const std::string& set, const std::string& prefix = "cad_components_");
+
+  /// Pack components: boxes in the frame of every detector pack (the G4Para EmptyPackBox: x = depth, y = across the
+  /// tubes, z = along the tubes), data files G4GeoLoki/data/cad_pack_<name>.txt, one box per line:
+  ///   <name> <material> x0 x1 y0 y1 <zkind> a b      [mm]
+  /// zkind "length": z in [-(L/2+a), L/2+a] (L: the straw length of the bank); "ends": z in [L/2+a, L/2+b] and its mirror
+  struct PackBox {
+    std::string name, material;
+    double x0, x1, y0, y1;           // [Geant4 length units]
+    bool alongLength;                // zkind length (true) or ends (false)
+    double a, b;                     // [Geant4 length units]
+  };
+  static std::vector<PackBox> loadPack(const std::string& sets);
 };
 
 #endif
