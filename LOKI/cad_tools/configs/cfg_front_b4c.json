@@ -1,0 +1,26 @@
+{
+ "name": "front_b4c_2021",
+ "output": "cad_components_front_b4c_2021.txt",
+ "description": "B4C plates of the front carriage added with the updated boron masks (SI-7615-678, 2021): SI-7615-695/-696/-697/-703 (side plates) and -702/-704 (bottom plates)",
+ "selections": [
+  {
+   "tag": "678",
+   "step": "${CAD_MODELS}/triangularBoronMasks/SI-7615-678 Front carriage with updated boron masks.stp",
+   "align": "align_678.npz",
+   "materials": [
+    "B4C"
+   ],
+   "labels": [
+    "SI-7615-695",
+    "SI-7615-696",
+    "SI-7615-697",
+    "SI-7615-702",
+    "SI-7615-703",
+    "SI-7615-704"
+   ]
+  }
+ ],
+ "calibrations": [
+  "g4_sam606.json"
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "name": "rail",
+ "output": "cad_pack_rail.txt",
+ "description": "the aluminium C-channel behind the B4C/Al panels of every pack (SI-7615-141/-162 of the pack SI-7615-131, 1229 mm for 1200 mm straws)",
+ "parts": [
+  {
+   "section": "sec_131.json",
+   "index": [
+    42
+   ],
+   "label": "SI-7615-141",
+   "material": "Al",
+   "a": 14.5
+  }
+ ]
+}

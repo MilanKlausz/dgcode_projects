@@ -1,0 +1,58 @@
+{
+ "name": "tufnol",
+ "output": "cad_components_tufnol.txt",
+ "description": "Tufnol (phenolic laminate, hydrogenous) parts of the detector frames: front carriage (SI-7615-678), middle and rear frames (SI-7615-451); small blocks SI-7615-196 omitted; generated to be compatible with: front_b4c_2021",
+ "selections": [
+  {
+   "tag": "678",
+   "step": "${CAD_MODELS}/triangularBoronMasks/SI-7615-678 Front carriage with updated boron masks.stp",
+   "align": "align_678.npz",
+   "materials": [
+    "Tufnol"
+   ],
+   "exclude": [
+    "SI-7615-196"
+   ]
+  },
+  {
+   "tag": "frames",
+   "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp",
+   "align": "align_frames_mid13.npz",
+   "region": [
+    9500,
+    11500,
+    24000,
+    25300
+   ],
+   "materials": [
+    "Tufnol"
+   ],
+   "exclude": [
+    "SI-7615-196"
+   ]
+  },
+  {
+   "tag": "frames",
+   "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp",
+   "align": "align_frames_rear.npz",
+   "region": [
+    12000,
+    15000,
+    30000,
+    32000
+   ],
+   "materials": [
+    "Tufnol"
+   ],
+   "exclude": [
+    "SI-7615-196"
+   ]
+  }
+ ],
+ "avoid": [
+  "cad_components_front_b4c_2021.txt"
+ ],
+ "calibrations": [
+  "g4_sam606.json"
+ ]
+}
