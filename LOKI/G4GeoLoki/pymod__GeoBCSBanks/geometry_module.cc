@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "G4GeoLoki/BcsBanks.hh"
+#include "G4GeoLoki/CadComponents.hh"
 
 class GeoBCS : public G4Interfaces::GeoConstructBase
 {
@@ -32,6 +33,7 @@ protected:
   virtual bool validateParameters();
 private:
   BcsBanks* banks;
+  std::vector<CadComponents::Box> cadBoxes; // the boxes of the CAD component sets (cad_components)
   //Functions
   G4LogicalVolume * createTubeLV(double converter_thickness, double straw_length);
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
@@ -40,6 +42,7 @@ private:
   bool hasBoronMasks(int bankId);
   bool isExcludedBoronMask(int bankId, int maskId);
   bool isListedBoronMask(const std::string& parameter, int bankId, int maskId);
+  G4LogicalVolume * createCadBoxLV(const CadComponents::Box& box);
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
@@ -205,6 +208,14 @@ GeoBCS::GeoBCS()
   // the gas around the tubes inside the bank and pack volumes (the measurements at atmospheric pressure: G4_AIR)
   addParameterString("pack_fill_material","G4_Vacuum");
   addParameterString("B4C_panel_material","MAT_B4C:b10_enrichment=0.95"); // the B4C panels behind the tubes
+
+  // Optional components from the CAD models, simplified to boxes (see G4GeoLoki/CadComponents.hh): a comma separated
+  // list of component sets (data files G4GeoLoki/data/cad_components_<set>.txt, or file paths), e.g.
+  // "front_b4c_2021,tufnol"; empty: none. The materials of the components (by their material key):
+  addParameterString("cad_components", "");
+  addParameterString("cad_B4C_material", "MAT_B4C:b10_enrichment=0.95"); // B4C S-DOUGH (82% B4C) parts, as the masks
+  addParameterString("cad_Tufnol_material", "G4_BAKELITE");              // Tufnol (phenolic laminate)
+  addParameterString("cad_Al_material", "NCrystal:cfg=Al_sg225.ncmat");  // aluminium alloy parts
 }
 
 G4LogicalVolume * GeoBCS::createTubeLV(double converterThickness, double strawLength){
@@ -396,6 +407,17 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
            bankId, distance, length, width, thickness, std::atan2(dx, dz) * 180 / M_PI);
   }
 
+  // CAD components inside this bank volume (bank frame)
+  for (const auto& box : cadBoxes) {
+    if (!box.inBank || box.bankId != bankId)
+      continue;
+    const auto& a = box.axes;
+    const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
+                                  G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the box axes
+    place(createCadBoxLV(box), box.centre[0], box.centre[1], box.centre[2], lv_bank,
+          box.material == "B4C" ? BLACK : BROWN, -11, 0, new G4RotationMatrix(inBank.inverse()));
+  }
+
   // An enlarged notch must not cut into the content of the bank (packs, masks): it is only meant to remove empty
   // space of the bank volume. (Conservative check with the bounding boxes of the daughters in the bank frame.)
   if (banks->hasBankNotch(bankId) && !banks->getBankNotch(bankId).isNominal) {
@@ -474,6 +496,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   auto lvWorld = worldvols.logvol;
   auto pvWorld = worldvols.physvol;
 
+  cadBoxes = CadComponents::load(getParameterString("cad_components"));
+
   // Create and place detector banks
   for (int bankId = 0; bankId < banks->getNumberOfBanks(); bankId++){
     auto lv_bank = createBankLV(bankId);
@@ -505,6 +529,21 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 
     place(lv_triangularMask, position[0], position[1], position[2], lvWorld, BLACK, -5, 0, rotation);
   }
+
+  // CAD components outside the bank volumes: given in the frame of their bank, placed with the bank transform
+  for (const auto& box : cadBoxes) {
+    if (box.inBank)
+      continue;
+    const BankTransform bank = banks->getBankTransform(box.bankId);
+    const auto position = bank.toGlobal(box.centre);
+    const auto& a = box.axes;
+    const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
+                                  G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the box axes
+    auto rotation = new G4RotationMatrix((toG4Rotation(bank) * inBank).inverse());
+    place(createCadBoxLV(box), position[0], position[1], position[2], lvWorld, box.material == "B4C" ? BLACK : BROWN, -11, 0, rotation);
+  }
+  if (!cadBoxes.empty())
+    printf("GeoBCSBanks: %d CAD component boxes (%s)\n", static_cast<int>(cadBoxes.size()), getParameterString("cad_components").c_str());
 
   // Absorber strips in front of the front face of a bank volume (in the world: taped over the structural masks and
   // everything else inside the bank volume); bank frame: x = depth, y = across the tubes, z = along the tubes
@@ -601,6 +640,13 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 }
 
 
+G4LogicalVolume *GeoBCS::createCadBoxLV(const CadComponents::Box& box) {
+  // the volume name: CadComponent-<material key>-<set>:<CAD part>#<solid>.<box>
+  const std::string name = "CadComponent-" + box.material + "-" + box.name;
+  return new G4LogicalVolume(new G4Box(name, box.halfSize[0], box.halfSize[1], box.halfSize[2]),
+                             getParameterMaterial("cad_" + box.material + "_material"), name);
+}
+
 bool GeoBCS::isExcludedBoronMask(int bankId, int maskId) {
   return isListedBoronMask("boron_mask_exclude", bankId, maskId);
 }
@@ -643,6 +689,16 @@ bool GeoBCS::validateParameters() {
     parseBankList(getParameterString("boron_mask_banks"));
     parseAbsorberStrips(getParameterString("absorber_strips"));
     parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate (bank,x1,y1,z1,x2,y2,z2,width,thickness[,distance])", 1);
+  }
+  catch (const std::exception& error) {
+    printf("ERROR: %s\n", error.what());
+    return false;
+  }
+  try {
+    for (const auto& box : CadComponents::load(getParameterString("cad_components")))
+      if (box.material != "B4C" && box.material != "Tufnol" && box.material != "Al")
+        throw std::runtime_error("CAD component " + box.name + ": unknown material key " + box.material
+                                 + " (known: B4C, Tufnol, Al: parameters cad_<key>_material)");
   }
   catch (const std::exception& error) {
     printf("ERROR: %s\n", error.what());

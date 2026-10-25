@@ -27,6 +27,10 @@ def world_daughters():
 def world_tree():
     return _collect( _impl.world_tree )
 
+def world_tree_solids( maxdepth = -1 ):
+    """As world_tree, plus (solid type, parameters, material name) per volume (see pymod__TestUtils/mod.cc)"""
+    return _collect( _impl.world_tree_solids, maxdepth )
+
 def dense_world_overlaps( npoints, tolerance ):
     return _collect( _impl.dense_world_overlaps, npoints, tolerance )
 

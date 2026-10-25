@@ -32,6 +32,7 @@
 #include "G4ThreeVector.hh"
 #include "G4VSolid.hh"
 #include "G4Box.hh"
+#include "G4Material.hh"
 #include <array>
 #include <algorithm>
 #include <vector>
@@ -255,6 +256,38 @@ namespace {
     addTree(add, s_world, 0, G4RotationMatrix(), G4ThreeVector());
   }
 
+  //As world_tree, plus the solid and the material: add(..., solid type, parameters, material name), parameters = the
+  //half lengths for a G4Box, the full (x, y, z) extent of the solid's bounding box otherwise (enough to compare
+  //simplified components with CAD boxes); maxdepth limits the depth (-1: all).
+  using TreeSolidsAdd = sbldpy::Callback<void(I,std::string,I,std::string,V3,M3,std::string,V3,std::string)>;
+  void addTreeSolids(TreeSolidsAdd& add, const G4VPhysicalVolume* pv, int depth, int maxdepth, const G4RotationMatrix& Rp, const G4ThreeVector& tp)
+  {
+    if (maxdepth >= 0 && depth > maxdepth)
+      return;
+    const G4RotationMatrix R = Rp * pv->GetObjectRotationValue();
+    const G4ThreeVector t = tp + Rp * pv->GetObjectTranslation();
+    const G4VSolid* solid = pv->GetLogicalVolume()->GetSolid();
+    V3 pars;
+    if (auto box = dynamic_cast<const G4Box*>(solid)) {
+      pars = { box->GetXHalfLength(), box->GetYHalfLength(), box->GetZHalfLength() };
+    } else {
+      G4ThreeVector lo, hi;
+      solid->BoundingLimits(lo, hi);
+      pars = v3(hi - lo);
+    }
+    add(depth, std::string(pv->GetName()), pv->GetCopyNo(), std::string(pv->GetLogicalVolume()->GetName()), v3(t), rows(R),
+        std::string(solid->GetEntityType()), pars, std::string(pv->GetLogicalVolume()->GetMaterial()->GetName()));
+    auto lv = pv->GetLogicalVolume();
+    for (size_t i = 0; i < lv->GetNoDaughters(); ++i)
+      addTreeSolids(add, lv->GetDaughter(i), depth + 1, maxdepth, R, t);
+  }
+  void world_tree_solids( I maxdepth, TreeSolidsAdd add )
+  {
+    if (!s_world)
+      throw std::runtime_error("world_tree_solids: call construct_world first");
+    addTreeSolids(add, s_world, 0, (int)maxdepth, G4RotationMatrix(), G4ThreeVector());
+  }
+
   //Thin wrapper around PixelatedBanks (the class used by the analysis programs
   //to convert hits to pixel ids).
   struct PixelCalc {
@@ -305,6 +338,7 @@ SBLDPY_MODULE( _TestUtils )
   m.def("locate", &locate, { "x", "y", "z", "add" });
   m.def("world_daughters", &world_daughters, { "add" });
   m.def("world_tree", &world_tree, { "add" });
+  m.def("world_tree_solids", &world_tree_solids, { "maxdepth", "add" });
   m.def("dense_world_overlaps", &dense_world_overlaps, { "npoints", "tolerance", "add" });
   m.def("dense_bank_containment", &dense_bank_containment, { "npoints", "tolerance", "add" });
   m.def("bank_daughters_distance_to_box", &bank_daughters_distance_to_box, { "bankCopyNo", "centre", "halfSize", "npoints" });
