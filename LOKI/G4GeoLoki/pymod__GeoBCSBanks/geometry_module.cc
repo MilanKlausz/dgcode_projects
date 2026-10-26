@@ -21,6 +21,8 @@
 
 #include "G4GeoLoki/BcsBanks.hh"
 #include "G4GeoLoki/CadComponents.hh"
+#include "G4Materials/NamedMaterialProvider.hh"
+#include <map>
 
 class GeoBCS : public G4Interfaces::GeoConstructBase
 {
@@ -35,6 +37,8 @@ private:
   BcsBanks* banks;
   std::vector<CadComponents::Box> cadBoxes; // the boxes of the CAD component sets (cad_components)
   std::vector<CadComponents::PackBox> cadPackBoxes; // the boxes of the CAD pack component sets (cad_pack_components)
+  std::vector<CadComponents::Envelope> cadEnvelopes; // the envelopes of the CAD component sets (simplified sets)
+  std::map<std::string, G4Material*> cadMaterials;  // the materials of the CAD components by (key, density factor)
   //Functions
   G4LogicalVolume * createTubeLV(double converter_thickness, double straw_length);
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
@@ -44,6 +48,7 @@ private:
   bool isExcludedBoronMask(int bankId, int maskId);
   bool isListedBoronMask(const std::string& parameter, int bankId, int maskId);
   G4LogicalVolume * createCadBoxLV(const CadComponents::Box& box);
+  G4Material * getCadMaterial(const std::string& key, double fill);
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
@@ -292,7 +297,7 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
   /// CAD pack components (cad_pack_components): boxes along the tubes or at both ends ///
   for (const auto& box : cadPackBoxes) {
     const std::string name = "CadPack-" + box.material + "-" + box.name;
-    auto material = getParameterMaterial("cad_" + box.material + "_material");
+    auto material = getCadMaterial(box.material, box.fill);
     const double hx = 0.5 * (box.x1 - box.x0), hy = 0.5 * (box.y1 - box.y0);
     const double cx = 0.5 * (box.x0 + box.x1), cy = 0.5 * (box.y0 + box.y1);
     if (box.alongLength) {
@@ -523,6 +528,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   auto pvWorld = worldvols.physvol;
 
   cadBoxes = CadComponents::load(getParameterString("cad_components"));
+  cadEnvelopes = CadComponents::loadEnvelopes(getParameterString("cad_components"));
   cadPackBoxes = CadComponents::loadPack(getParameterString("cad_pack_components"));
 
   // Create and place detector banks
@@ -557,20 +563,53 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     place(lv_triangularMask, position[0], position[1], position[2], lvWorld, BLACK, -5, 0, rotation);
   }
 
-  // CAD components outside the bank volumes: given in the frame of their bank, placed with the bank transform
+  // CAD components outside the bank volumes: given in the frame of their bank, placed with the bank transform; in the
+  // world or in an envelope (a box of the world material, itself placed in the world with the bank transform)
+  std::map<std::string, std::pair<G4LogicalVolume*, const CadComponents::Envelope*>> envelopeLVs;
+  for (const auto& env : cadEnvelopes) {
+    const BankTransform bank = banks->getBankTransform(env.bankId);
+    const auto position = bank.toGlobal(env.centre);
+    const auto& a = env.axes;
+    const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
+                                  G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the envelope axes
+    auto rotation = new G4RotationMatrix((toG4Rotation(bank) * inBank).inverse());
+    auto lv = place(new G4Box("CadEnvelope-" + env.name, env.halfSize[0], env.halfSize[1], env.halfSize[2]), world_material,
+                    position[0], position[1], position[2], lvWorld, INVISIBLE, -13, 0, rotation).logvol;
+    envelopeLVs[env.name] = {lv, &env};
+  }
   for (const auto& box : cadBoxes) {
     if (box.inBank)
       continue;
+    const auto& a = box.axes;
+    if (!box.envelope.empty()) {
+      // the box in the frame of its envelope (both given in the bank frame): position E (c - c_env), axes A E^T
+      const auto& [lvEnvelope, env] = envelopeLVs.at(box.envelope);
+      const auto& e = env->axes;
+      std::array<double,3> local;
+      std::array<std::array<double,3>,3> axes;
+      for (int i = 0; i < 3; i++) {
+        local[i] = 0;
+        for (int j = 0; j < 3; j++) {
+          local[i] += e[i][j] * (box.centre[j] - env->centre[j]);
+          axes[i][j] = a[i][0] * e[j][0] + a[i][1] * e[j][1] + a[i][2] * e[j][2];
+        }
+      }
+      const G4RotationMatrix inEnvelope(G4ThreeVector(axes[0][0], axes[0][1], axes[0][2]), G4ThreeVector(axes[1][0], axes[1][1], axes[1][2]),
+                                        G4ThreeVector(axes[2][0], axes[2][1], axes[2][2]));   // columns: the box axes
+      place(createCadBoxLV(box), local[0], local[1], local[2], lvEnvelope, cadColour(box.material), -11, 0,
+            new G4RotationMatrix(inEnvelope.inverse()));
+      continue;
+    }
     const BankTransform bank = banks->getBankTransform(box.bankId);
     const auto position = bank.toGlobal(box.centre);
-    const auto& a = box.axes;
     const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
                                   G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the box axes
     auto rotation = new G4RotationMatrix((toG4Rotation(bank) * inBank).inverse());
     place(createCadBoxLV(box), position[0], position[1], position[2], lvWorld, cadColour(box.material), -11, 0, rotation);
   }
   if (!cadBoxes.empty())
-    printf("GeoBCSBanks: %d CAD component boxes (%s)\n", static_cast<int>(cadBoxes.size()), getParameterString("cad_components").c_str());
+    printf("GeoBCSBanks: %d CAD component boxes, %d envelopes, %d materials (%s)\n", static_cast<int>(cadBoxes.size()),
+           static_cast<int>(cadEnvelopes.size()), static_cast<int>(cadMaterials.size()), getParameterString("cad_components").c_str());
 
   // Absorber strips in front of the front face of a bank volume (in the world: taped over the structural masks and
   // everything else inside the bank volume); bank frame: x = depth, y = across the tubes, z = along the tubes
@@ -671,7 +710,27 @@ G4LogicalVolume *GeoBCS::createCadBoxLV(const CadComponents::Box& box) {
   // the volume name: CadComponent-<material key>-<set>:<CAD part>#<solid>.<box>
   const std::string name = "CadComponent-" + box.material + "-" + box.name;
   return new G4LogicalVolume(new G4Box(name, box.halfSize[0], box.halfSize[1], box.halfSize[2]),
-                             getParameterMaterial("cad_" + box.material + "_material"), name);
+                             getCadMaterial(box.material, box.fill), name);
+}
+
+G4Material *GeoBCS::getCadMaterial(const std::string& key, double fill) {
+  // the material of a CAD component: parameter cad_<key>_material, with the density scaled by the fill of a homogenised
+  // box. The factor is rounded to steps of 5% (relative), so that a set needs only a few materials (each material has
+  // its own physics tables).
+  const std::string base = getParameterString("cad_" + key + "_material");
+  if (fill >= 0.975)
+    return getParameterMaterial("cad_" + key + "_material");
+  const double step = std::log(1.05);
+  const double factor = std::exp(std::round(std::log(fill) / step) * step);
+  char text[32];
+  snprintf(text, sizeof(text), "%.4f", factor);
+  // NCrystal cfg strings (without the NCrystal: prefix) take ;density=<f>x, the other material strings :scale_density=<f>
+  const bool ncrystalCfg = base.find(".ncmat") != std::string::npos && base.rfind("NCrystal:", 0) != 0;
+  const std::string name = ncrystalCfg ? base + ";density=" + text + "x" : base + ":scale_density=" + text;
+  auto it = cadMaterials.find(name);
+  if (it == cadMaterials.end())
+    it = cadMaterials.emplace(name, NamedMaterialProvider::getMaterial(name)).first;
+  return it->second;
 }
 
 bool GeoBCS::isExcludedBoronMask(int bankId, int maskId) {

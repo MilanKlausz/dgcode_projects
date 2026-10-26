@@ -39,6 +39,9 @@
 #include <memory>
 #include <iostream>
 #include <cstdio>
+#include <set>
+#include <sstream>
+#include <string>
 
 namespace {
 
@@ -46,6 +49,16 @@ namespace {
   using V3 = std::array<double,3>;
   using M3 = std::array<V3,3>;
   V3 v3( const G4ThreeVector& v ) { return { v.x(), v.y(), v.z() }; }
+  //the lists of names are passed as one string with the names separated by newlines (sbldpy has no list parameters)
+  std::vector<std::string> lines( const std::string& text )
+  {
+    std::vector<std::string> out;
+    std::istringstream in( text );
+    for ( std::string line; std::getline( in, line ); )
+      if ( !line.empty() )
+        out.push_back( line );
+    return out;
+  }
   M3 rows( const G4RotationMatrix& r ) { return { V3{ r.xx(), r.xy(), r.xz() }, V3{ r.yx(), r.yy(), r.yz() }, V3{ r.zx(), r.zy(), r.zz() } }; }
 
   G4VPhysicalVolume* s_world = nullptr;
@@ -168,15 +181,20 @@ namespace {
   //npoints random surface points of each daughter of every bank must be inside its bank solid (which
   //for the banks 6 and 8 has the notch cut out). add(bank copy number, "daughter:copy", number of points
   //outside by more than tolerance, max distance [mm]) for the daughters with such points.
-  void dense_bank_containment(I npoints, double tolerance, sbldpy::Callback<void(I,std::string,I,double)> add)
+  //mothers: the logical volume names (prefixes, one per line) of the world daughters checked, the banks ("Bank") in
+  //the Python module by default; e.g. "CadEnvelope-" for the envelopes of the CAD components.
+  void dense_bank_containment(I npoints, double tolerance, const std::string& mothersText, sbldpy::Callback<void(I,std::string,I,double)> add)
   {
     if (!s_world)
       throw std::runtime_error("dense_bank_containment: call construct_world first");
+    const auto mothers = lines(mothersText);
     auto world = s_world->GetLogicalVolume();
     for (size_t i = 0; i < world->GetNoDaughters(); ++i) {
       auto bankPV = world->GetDaughter(i);
       auto bankLV = bankPV->GetLogicalVolume();
-      if (bankLV->GetName() != "Bank")
+      const std::string lvName = bankLV->GetName();
+      if (std::none_of(mothers.begin(), mothers.end(), [&](const std::string& m) {
+            return m == "Bank" ? lvName == "Bank" : lvName.compare(0, m.size(), m) == 0; }))
         continue;
       const G4VSolid* bankSolid = bankLV->GetSolid();
       for (size_t j = 0; j < bankLV->GetNoDaughters(); ++j) {
@@ -234,6 +252,77 @@ namespace {
       }
     }
     return { minDistance, closest };
+  }
+
+  //Straight-line visibility of the detector tubes from points (an impact measure of passive material: can a neutron
+  //scattered at the point fly straight into a tube?). Each ray (point, direction) is followed through the geometry built
+  //with construct_world until it enters a volume whose physical volume name starts with one of `targets` (counted),
+  //a volume whose material name contains one of `absorbers`, a volume whose physical volume name starts with one of
+  //`stops`, leaves the world or exceeds maxdist [mm]. The volume containing the start point does not count. points and
+  //directions are flat (x0,y0,z0,x1,...) arrays, the name lists one name per line. Returns, per point, the number of
+  //rays that reach a target, and the material names of the volumes the rays stopped in (one per line, to check the
+  //absorber matching).
+  std::pair<sbldpy::NumpyCopy<std::int64_t>,std::string> ray_visibility(sbldpy::NumpyView<const double> points,
+                                                                       sbldpy::NumpyView<const double> directions,
+                                                                       double maxdist, const std::string& targetsText,
+                                                                       const std::string& absorbersText, const std::string& stopsText)
+  {
+    if (!s_world)
+      throw std::runtime_error("ray_visibility: call construct_world first");
+    const auto targets = lines(targetsText), absorbers = lines(absorbersText), stops = lines(stopsText);
+    auto startsWith = [](const G4String& s, const std::vector<std::string>& prefixes) {
+      for (const auto& p : prefixes)
+        if (s.compare(0, p.size(), p) == 0)
+          return true;
+      return false;
+    };
+    auto contains = [](const G4String& s, const std::vector<std::string>& parts) {
+      for (const auto& p : parts)
+        if (s.find(p) != std::string::npos)
+          return true;
+      return false;
+    };
+    G4Navigator nav;
+    nav.SetWorldVolume(s_world);
+    std::vector<std::int64_t> counts;
+    std::set<std::string> absorberMaterials;
+    for (std::size_t i = 0; i + 2 < points.size(); i += 3) {
+      std::int64_t count = 0;
+      for (std::size_t j = 0; j + 2 < directions.size(); j += 3) {
+        G4ThreeVector pos(points[i], points[i + 1], points[i + 2]), dir(directions[j], directions[j + 1], directions[j + 2]);
+        nav.ResetStackAndState();
+        G4VPhysicalVolume* pv = nav.LocateGlobalPointAndSetup(pos, &dir, false, false);
+        double travelled = 0;
+        for (int crossings = 0; pv && travelled < maxdist && crossings < 5000; ++crossings) {
+          double safety = 0;
+          const double step = nav.ComputeStep(pos, dir, maxdist - travelled, safety);
+          if (step >= maxdist - travelled)
+            break;
+          pos += step * dir;
+          travelled += step;
+          nav.SetGeometricallyLimitedStep();
+          pv = nav.LocateGlobalPointAndSetup(pos, &dir, true);
+          if (!pv)
+            break;
+          if (startsWith(pv->GetName(), targets)) {
+            ++count;
+            break;
+          }
+          const G4String& material = pv->GetLogicalVolume()->GetMaterial()->GetName();
+          if (contains(material, absorbers)) {
+            absorberMaterials.insert(material);
+            break;
+          }
+          if (startsWith(pv->GetName(), stops))
+            break;
+        }
+      }
+      counts.push_back(count);
+    }
+    std::string materials;
+    for (const auto& m : absorberMaterials)
+      materials += m + "\n";
+    return { sbldpy::NumpyCopy<std::int64_t>(std::move(counts)), materials };
   }
 
   //Every physical volume of the geometry built with construct_world, depth first:
@@ -340,8 +429,9 @@ SBLDPY_MODULE( _TestUtils )
   m.def("world_tree", &world_tree, { "add" });
   m.def("world_tree_solids", &world_tree_solids, { "maxdepth", "add" });
   m.def("dense_world_overlaps", &dense_world_overlaps, { "npoints", "tolerance", "add" });
-  m.def("dense_bank_containment", &dense_bank_containment, { "npoints", "tolerance", "add" });
+  m.def("dense_bank_containment", &dense_bank_containment, { "npoints", "tolerance", "mothers", "add" });
   m.def("bank_daughters_distance_to_box", &bank_daughters_distance_to_box, { "bankCopyNo", "centre", "halfSize", "npoints" });
+  m.def("ray_visibility", &ray_visibility, { "points", "directions", "maxdist", "targets", "absorbers", "stops" });
 
   using MFC = MaskFileCreatorImpl;
   m.add_class<MFC>("MaskFileCreator")

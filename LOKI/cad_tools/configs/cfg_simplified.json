@@ -1,0 +1,46 @@
+{
+ "g4dump": "g4_nominal.json",
+ "calibrations": ["g4_sam606.json"],
+ "relevance": ["simplified/relevance_nominal.json"],
+ "max_radius_mm": 1620.0,
+ "envelopes": true,
+ "sets": [
+  {
+   "name": "simple_b4c2021",
+   "output": "simplified/cad_components_simple_b4c2021.txt",
+   "description": "the B4C plates added to the front carriage with the updated boron masks (SI-7615-678, 2021): SI-7615-695/-696/-697/-703 (side plates) and -702/-704 (bottom plates)",
+   "selections": [
+    {"tag": "678", "step": "${CAD_MODELS}/triangularBoronMasks/SI-7615-678 Front carriage with updated boron masks.stp",
+     "align": "align_678.npz", "materials": ["B4C"],
+     "labels": ["SI-7615-695", "SI-7615-696", "SI-7615-697", "SI-7615-703", "SI-7615-702", "SI-7615-704"]}
+   ]
+  },
+  {
+   "name": "simple_tufnol",
+   "output": "simplified/cad_components_simple_tufnol.txt",
+   "description": "the Tufnol (phenolic laminate) parts of the detector frames with a tube-visibility relevance >= 1.5 cm3 (relevance.py): front carriage pads and plates, the Pi-shaped frames behind the masks of banks 1/3, the side plates of the rear bank",
+   "selections": [
+    {"tag": "678", "step": "${CAD_MODELS}/triangularBoronMasks/SI-7615-678 Front carriage with updated boron masks.stp",
+     "align": "align_678.npz", "materials": ["Tufnol"], "min_volume_cm3": 50, "min_relevance_cm3": 1.5},
+    {"tag": "frames", "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp", "align": "align_frames_mid_v2.npz",
+     "region": [9500, 11500, 24000, 25300], "materials": ["Tufnol"], "min_volume_cm3": 50, "min_relevance_cm3": 1.5},
+    {"tag": "frames", "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp", "align": "align_frames_rear_v2.npz",
+     "region": [12000, 15000, 30000, 32000], "materials": ["Tufnol"], "min_volume_cm3": 50, "min_relevance_cm3": 1.5}
+   ]
+  },
+  {
+   "name": "simple_al",
+   "output": "simplified/cad_components_simple_al.txt",
+   "description": "the aluminium of the detector frames (plates, hollow beams, the carriage ring as its beams) with a tube-visibility relevance >= 40 cm3 (relevance.py; 97% of the total), homogenised",
+   "selections": [
+    {"tag": "678", "step": "${CAD_MODELS}/triangularBoronMasks/SI-7615-678 Front carriage with updated boron masks.stp",
+     "align": "align_678.npz", "materials": ["Al"], "min_volume_cm3": 50, "min_relevance_cm3": 40,
+     "exclude": ["SI-7615-102", "SI-7615-701", "SI-8820-130"], "beams": "beams_678.json"},
+    {"tag": "frames", "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp", "align": "align_frames_mid_v2.npz",
+     "region": [9500, 11500, 24000, 25300], "materials": ["Al"], "min_volume_cm3": 50, "min_relevance_cm3": 40},
+    {"tag": "frames", "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp", "align": "align_frames_rear_v2.npz",
+     "region": [12000, 15000, 30000, 32000], "materials": ["Al"], "min_volume_cm3": 50, "min_relevance_cm3": 40}
+   ]
+  }
+ ]
+}

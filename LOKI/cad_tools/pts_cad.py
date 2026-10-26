@@ -1,7 +1,7 @@
 """Stage A (FreeCAD): random points inside every CAD solid of a material, in the Geant4 world frame.
 
 env: TAG (cadlib inventory tag), STEP, ALIGN (npz: world = R cad + t), MAT (default B4C), N (points per solid, default 400),
-     OUT (json: [{label, idx, normal, points}])"""
+     OUT (json: [{label, idx, normal, points}]), REGION (CAD x0,x1,y0,y1: solids with their centre inside), MINVOL (cm3)"""
 import os, sys, json, random
 sys.path.insert(0, os.environ.get('CAD_TOOLS', '.'))   # the directory of these scripts
 import numpy as np
@@ -15,7 +15,7 @@ M = Matrix(R[0, 0], R[0, 1], R[0, 2], t[0], R[1, 0], R[1, 1], R[1, 2], t[1], R[2
 REG = [float(x) for x in os.environ['REGION'].split(',')] if os.environ.get('REGION') else None   # CAD x0,x1,y0,y1
 def inreg(r):
     return REG is None or (REG[0] < r['centre'][0] < REG[1] and REG[2] < r['centre'][1] < REG[3])
-rows = [r for r in cadlib.load(tag) if r['mat'] in mats and inreg(r)]
+rows = [r for r in cadlib.load(tag) if r['mat'] in mats and inreg(r) and r['vol'] >= float(os.environ.get('MINVOL', '0')) * 1e3]
 allshape = Part.read(os.environ['STEP'])
 random.seed(1)
 out = []

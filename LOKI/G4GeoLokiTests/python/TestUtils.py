@@ -34,10 +34,19 @@ def world_tree_solids( maxdepth = -1 ):
 def dense_world_overlaps( npoints, tolerance ):
     return _collect( _impl.dense_world_overlaps, npoints, tolerance )
 
-def dense_bank_containment( npoints, tolerance ):
-    return _collect( _impl.dense_bank_containment, npoints, tolerance )
+def dense_bank_containment( npoints, tolerance, mothers = ( 'Bank', ) ):
+    """mothers: the logical volume names (prefixes) of the world daughters checked (default: the banks)"""
+    return _collect( _impl.dense_bank_containment, npoints, tolerance, '\n'.join( mothers ) )
 
 bank_daughters_distance_to_box = _impl.bank_daughters_distance_to_box
+
+def ray_visibility( points, directions, maxdist, targets, absorbers, stops ):
+    """Straight-line visibility of the tubes from points (see pymod__TestUtils/mod.cc): (rays reaching a target per
+    point, material names of the absorbers the rays stopped in)"""
+    flat = lambda v : _np.ascontiguousarray( v, dtype = _np.float64 ).reshape( -1 )
+    counts, materials = _impl.ray_visibility( flat( points ), flat( directions ), float( maxdist ), '\n'.join( targets ),
+                                              '\n'.join( absorbers ), '\n'.join( stops ) )
+    return counts.tolist(), [ m for m in materials.split( '\n' ) if m ]
 
 def MaskFileCreator( fileName, indexOffset, bankPixelLimits, aimingBankId = 0 ):
     """The mask file writer of the masking analysis (LokiMasking)"""
