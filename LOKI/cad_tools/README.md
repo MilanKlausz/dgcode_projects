@@ -17,13 +17,73 @@ All components are optional and off by default:
 | `cad_Tufnol_material` | Tufnol (phenolic laminate) parts (default `G4_BAKELITE`) |
 | `cad_Al_material` | aluminium alloy parts (default `NCrystal:cfg=Al_sg225.ncmat`, as the pack Al panel) |
 
-e.g. `sb_loki_sim cad_components=tufnol,frames_al cad_pack_components=rail ...`
+e.g. `sb_loki_sim cad_components=simple_tufnol,simple_al cad_pack_components=simple_ends ...`
 
 Volumes are named `CadComponent-<material>-<set>:<CAD part>#<solid>.<box>` and `CadPack-<material>-<set>:<part>.<box>`
-(copy numbers -11 and -12: passive). Pack boxes are siblings of the tubes, so the copy-number depths used by the
-analyses are unchanged.
+(copy numbers -11 and -12: passive), envelopes `CadEnvelope-<set>:<name>` (copy number -13). Pack boxes are siblings of
+the tubes and envelopes are placed in the world, so the copy-number depths used by the analyses are unchanged.
 
-### The sets (October 2026)
+### The simplified sets (branch cad-simplified, recommended)
+
+Few volumes per CAD part: each selected solid is at most a few boxes per region (inside a bank volume / in the world),
+**homogenised**: a box may contain the small enclosed holes of the part (bolt holes, the windows of a truss, the inside of
+a hollow beam: aluminium holes up to 400 cm2, Tufnol and B4C up to 10 cm2) and has the part's material with the density
+scaled by its filled fraction, so that the mass is kept. Large openings (the windows of the U- and Pi-shaped frame plates
+in front of the tubes) stay open. The density factors are rounded to steps of 5% (relative), i.e. a few materials per set.
+Aluminium parts are selected by their **relevance** (`relevance.py`): the volume of a part times the fraction of directions
+in which a straight line from a point of the part reaches a detector tube before any B4C/Cd/Gd (the chance that a neutron
+scattered there flies straight into a tube). Parts hidden behind the B4C panels, masks or other banks, and the small
+brackets, score low and are left out. World boxes of a set are grouped into **envelopes** (boxes of the world material)
+where that is possible without touching a bank box or another volume (most frame parts wrap around a bank box, so many
+stay directly in the world).
+
+| set | content | volumes |
+|---|---|---|
+| `simple_b4c2021` | the B4C plates added with the updated boron masks of the front carriage (SI-7615-695/-696/-697/-703, -702/-704; as `front_b4c_2021`) | 8 boxes, 3 envelopes |
+| `simple_tufnol` | the Tufnol parts with a relevance >= 1.5 cm3 (Tufnol scatters ~30x more than aluminium per cm): the Pi-shaped frames of banks 1/3 (3 boxes each), the side plates of the rear bank, the pads and plates of the front carriage, the wedges -180; 12.8 l | 18 boxes |
+| `simple_al` | the aluminium of the front carriage, middle and rear frames with a relevance >= 40 cm3 (97% of the total relevance): plates, hollow beams (one homogenised box each) and the beams of the carriage ring; 213 l (the detailed `frames_al`: 228 l) | 137 boxes, 9 envelopes |
+| `simple_ends` (pack) | the end blocks and end plates beyond both straw ends of every pack (548 cm3 per end, the whole CAD volume) as two homogenised boxes per end (upper / lower half of the pack section, fill 0.50) | 4 per pack |
+
+The C-channel of the packs (`rail`) has no simplified version: it had no significant effect on any setup. All four sets
+together, and any subset, are free of overlaps (construction-time check; `dense_check.py simple_b4c2021,simple_tufnol,simple_al
+simple_ends`: nominal and SAM-606 placement, rear bank at 5 m and 10 m, calibration slits, vacuum tank; the setup-B
+strips and plates). Generated with `gen_simplified.py configs/cfg_simplified.json` and `gen_pack_simplified.py
+configs/cfg_pack_ends.json cad_pack_simple_ends.txt simple_ends` (see the workflow below).
+
+**Simulation time** (CPU time per event of `sb_loki_sim` with GRIFF output, AmBe source with the reference setup: air,
+tank, agreed masks; 200k events x 6 runs per variant, each run pinned to its own core, the runs spread over both sockets
+of one DMSC quark node per source position; relative to the geometry without CAD components, uncertainty about +-2%):
+
+| variant | nominal source position (0, 0, 0) | setup B (source among the front banks) | setup E (in front of the rear bank) |
+|---|---|---|---|
+| detailed sets `front_b4c_2021,tufnol,frames_al` + pack `rail,ends` | +13% | +17% | +11% |
+| simplified `simple_b4c2021,simple_tufnol,simple_al` + pack `simple_ends` | +8% | +10% | +4% |
+| the same, all component materials replaced by air (geometry only) | +3% | +6% | +3% |
+| the same without envelopes | +7% | +12% | +6% |
+| `simple_tufnol` / `simple_al` / pack `simple_ends` alone | 0% / +4% / +2% | 0% / +5% / +3% | 0% / +1% / +1% |
+
+The geometry itself (navigation through 163 boxes, 12 envelopes and 4 boxes per pack) costs 3-6%; the rest is the
+physics of the added material (more neutron scattering, longer histories: the GRIFF output grows like the CPU time). The
+envelopes change the time by about 1-2% (within the uncertainty): the world has 91 daughters with the simplified sets
+(17 without CAD components). Memory: +20 MB per process (detailed sets: +55 MB). Initialisation: unchanged (~11 s).
+The geometry-only cost of the detailed sets is +5-9%. `cad_Al_material=G4_Al` (instead of NCrystal) is not faster.
+
+**Physics: the simplified sets give the same results as the detailed ones** (AmBe reference setups, the same seeds,
+rates relative to the geometry without CAD components; statistical errors 0.05-0.12 for the back-lit banks of setup E,
+<= 0.01 for setup B):
+
+| | bank 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|---|
+| E (100M): detailed `tufnol,frames_al` + `rail,ends` | 1.025 | 1.48 | 1.39 | 1.56 | 1.30 | 0.93 | 1.19 | 0.92 | 1.14 |
+| E (100M): simplified `simple_tufnol,simple_al` + `simple_ends` | 1.024 | 1.43 | 1.49 | 1.55 | 1.41 | 1.06 | 1.20 | 0.98 | 1.11 |
+| B (50M): detailed `tufnol,frames_al` | 0.94(4) | 1.021 | 1.008 | 1.018 | 1.001 | 1.073 | 0.967 | 0.986 | 0.953 |
+| B (50M): simplified `simple_tufnol,simple_al` | 1.01(4) | 1.012 | 1.019 | 1.029 | 1.014 | 1.069 | 0.970 | 0.984 | 0.956 |
+
+The excess of the data at the tube ends of the rear bank (setup E, data/sim at the ends relative to the centre, layers
+0-3): 1.56 / 1.48 / 1.44 / 1.46 without components, 1.46 / 1.33 / 1.30 / 1.32 with the detailed sets, 1.42 / 1.33 / 1.30 /
+1.29 with the simplified sets.
+
+### The detailed sets (October 2026)
 
 | set | content | boxes | volume (CAD -> boxes) |
 |---|---|---|---|
@@ -85,3 +145,8 @@ Environment: `CAD_MODELS` (the `cad_models` directory), `CAD_WORK` (a work direc
    in slabs along the tubes, one section per slab, merged where consecutive slabs are equal).
 7. Copy the data file to `G4GeoLoki/data/`, rebuild, run `dense_check.py` (all sets together); `plot_components.py`
    draws the Geant4 boxes over the CAD silhouettes.
+8. Simplified sets: points in all solids (`pts_cad.py` with `MAT=Al,Tufnol,B4C,dark MINVOL=50 N=60`), their relevance
+   (`python relevance.py relevance_nominal.json pts_*.json`: rays through the Geant4 geometry with
+   `G4GeoLokiTests.TestUtils.ray_visibility`), then `python gen_simplified.py configs/cfg_simplified.json` (all simplified
+   sets in one run, so that they are compatible; `"envelopes": false` for a version without envelopes) and
+   `python gen_pack_simplified.py configs/cfg_pack_ends.json cad_pack_simple_ends.txt simple_ends`.
