@@ -131,6 +131,15 @@ namespace {
     return strips;
   }
 
+  // display colour of the CAD components by material: B4C black, Tufnol orange, aluminium silver
+  G4Colour cadColour(const std::string& material) {
+    if (material == "B4C")
+      return G4Colour(0.1, 0.1, 0.1);
+    if (material == "Tufnol")
+      return G4Colour(1.0, 0.55, 0.0);
+    return G4Colour(0.75, 0.75, 0.75);
+  }
+
   // object rotation of a bank (the columns are the bank-local axes in the world)
   G4RotationMatrix toG4Rotation(const BankTransform& transform) {
     const auto& R = transform.rotation;
@@ -287,11 +296,11 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
     const double hx = 0.5 * (box.x1 - box.x0), hy = 0.5 * (box.y1 - box.y0);
     const double cx = 0.5 * (box.x0 + box.x1), cy = 0.5 * (box.y0 + box.y1);
     if (box.alongLength) {
-      place(new G4Box(name, hx, hy, 0.5 * strawLength + box.a), material, cx, cy, 0, lv_pack_box, SILVER, -12, 0, new G4RotationMatrix());
+      place(new G4Box(name, hx, hy, 0.5 * strawLength + box.a), material, cx, cy, 0, lv_pack_box, cadColour(box.material), -12, 0, new G4RotationMatrix());
     } else {
       const double hz = 0.5 * (box.b - box.a), cz = 0.5 * strawLength + 0.5 * (box.a + box.b);
       for (int side : {1, -1})
-        place(new G4Box(name, hx, hy, hz), material, cx, cy, side * cz, lv_pack_box, SILVER, -12, 0, new G4RotationMatrix());
+        place(new G4Box(name, hx, hy, hz), material, cx, cy, side * cz, lv_pack_box, cadColour(box.material), -12, 0, new G4RotationMatrix());
     }
   }
   return lv_pack_box;
@@ -432,7 +441,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
                                   G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the box axes
     place(createCadBoxLV(box), box.centre[0], box.centre[1], box.centre[2], lv_bank,
-          box.material == "B4C" ? BLACK : BROWN, -11, 0, new G4RotationMatrix(inBank.inverse()));
+          cadColour(box.material), -11, 0, new G4RotationMatrix(inBank.inverse()));
   }
 
   // An enlarged notch must not cut into the content of the bank (packs, masks): it is only meant to remove empty
@@ -558,7 +567,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
                                   G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the box axes
     auto rotation = new G4RotationMatrix((toG4Rotation(bank) * inBank).inverse());
-    place(createCadBoxLV(box), position[0], position[1], position[2], lvWorld, box.material == "B4C" ? BLACK : BROWN, -11, 0, rotation);
+    place(createCadBoxLV(box), position[0], position[1], position[2], lvWorld, cadColour(box.material), -11, 0, rotation);
   }
   if (!cadBoxes.empty())
     printf("GeoBCSBanks: %d CAD component boxes (%s)\n", static_cast<int>(cadBoxes.size()), getParameterString("cad_components").c_str());
