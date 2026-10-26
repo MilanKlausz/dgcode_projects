@@ -31,6 +31,7 @@ analyses are unchanged.
 | `tufnol` | the Tufnol parts of the detector frames: front carriage (wedge pads -229, plates -217), the Pi-shaped 16 mm frames -558 behind the masks of banks 1/3, the 4 mm side plates of the rear bank (-195, -219, -197, -208); not the small blocks -196 and the wedges -180 (not plate-like) | 67 | 13.2 -> 12.2 l |
 | `frames_al` | aluminium plates (and compact parts) >= 200 cm3 of the front carriage (SI-7615-678) and of the middle and rear frames (SI-7615-451), and the hollow beams as extrusions (SI-7615-223_01, -209_01 and the beams of the welded carriage ring SI-7615-178_01, split by `beam_split.py`); other complex parts (brackets) are not included | 613 | 330 -> 225 l |
 | `rail` (pack) | the aluminium C-channel behind the B4C/Al panels of every pack (SI-7615-141/-162), 6 boxes per pack, L + 29 mm long | 6 per pack | 97% of the section |
+| `ends` (pack) | the aluminium end blocks (SI-7615-134/-135, in slabs) and end plates (SI-7615-073) beyond both straw ends of every pack, clipped to the pack volume (the real pack reaches 24 mm further forward and beyond the back) | 2 x 34 per pack | 586 -> 325 cm3 per end |
 
 `tufnol` is generated to be compatible with `front_b4c_2021`, `frames_al` with both (a later set yields to the earlier
 ones where the CAD parts touch). All sets are free of overlaps with the nominal and with the SAM-606 bank placement
@@ -77,6 +78,7 @@ Environment: `CAD_MODELS` (the `cad_models` directory), `CAD_WORK` (a work direc
 6. A set: `python gen_components.py configs/cfg_<set>.json` (plates are rasterised in their plane, every cell is
    classified as inside bank b / outside the banks / conflict with a separating-axis test against the bank boxes, their
    content, the world volumes, the other sets (`avoid`) and the calibrated placements (`calibrations`); each class is
-   covered by disjoint rectangles). Pack sets: `slice.py` + `gen_pack.py`.
+   covered by disjoint rectangles). Pack sets: `slice.py` + `gen_pack.py` (parts along the tubes from one section; end parts
+   in slabs along the tubes, one section per slab, merged where consecutive slabs are equal).
 7. Copy the data file to `G4GeoLoki/data/`, rebuild, run `dense_check.py` (all sets together); `plot_components.py`
    draws the Geant4 boxes over the CAD silhouettes.

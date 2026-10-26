@@ -1,0 +1,54 @@
+{
+ "name": "ends",
+ "output": "cad_pack_ends.txt",
+ "description": "the aluminium end blocks (SI-7615-134/-135, in 6 slabs) and end plates (SI-7615-073) beyond both straw ends of every pack, clipped to the pack volume",
+ "parts": [
+  {
+   "label": "SI-7615-134",
+   "material": "Al",
+   "slabs": [
+    {
+     "section": "${CAD_WORK}/sec_134_14.600.json",
+     "a": 14.6,
+     "b": 29.075
+    },
+    {
+     "section": "${CAD_WORK}/sec_134_29.075.json",
+     "a": 29.075,
+     "b": 43.55
+    },
+    {
+     "section": "${CAD_WORK}/sec_134_43.550.json",
+     "a": 43.55,
+     "b": 58.025
+    },
+    {
+     "section": "${CAD_WORK}/sec_134_58.025.json",
+     "a": 58.025,
+     "b": 72.5
+    },
+    {
+     "section": "${CAD_WORK}/sec_134_72.500.json",
+     "a": 72.5,
+     "b": 86.975
+    },
+    {
+     "section": "${CAD_WORK}/sec_134_86.975.json",
+     "a": 86.975,
+     "b": 101.45
+    }
+   ]
+  },
+  {
+   "label": "SI-7615-073",
+   "material": "Al",
+   "slabs": [
+    {
+     "section": "${CAD_WORK}/sec_073_101.550.json",
+     "a": 101.55,
+     "b": 111.45
+    }
+   ]
+  }
+ ]
+}
