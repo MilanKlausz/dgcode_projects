@@ -103,6 +103,28 @@ def section_grid(r, tess, raster):
     return a, b, n, (lo, cx, cy), grid, hi[2] - lo[2], (lo[2] + hi[2]) / 2
 
 
+def extrusion_grid(x, raster):
+    """section raster of an extrusion (xsec_<tag>.json entry): in-plane axes a, b, long axis n, centre, raster, grid, length"""
+    from matplotlib.path import Path
+    polys = [np.array(p) for p in x['sections'][1]['polys'] if len(p) > 2]
+    P = np.vstack(polys); lo, hi = P.min(0), P.max(0)
+    cell = max(raster, np.sqrt((hi[0] - lo[0]) * (hi[1] - lo[1]) / MAXCELLS))
+    nx = max(1, int(np.ceil((hi[0] - lo[0]) / cell))); ny = max(1, int(np.ceil((hi[1] - lo[1]) / cell)))
+    cx = (hi[0] - lo[0]) / nx; cy = (hi[1] - lo[1]) / ny
+    gx = lo[0] + (np.arange(nx) + 0.5) * cx; gy = lo[1] + (np.arange(ny) + 0.5) * cy
+    X, Y = np.meshgrid(gx, gy, indexing='ij'); pts = np.stack([X.ravel(), Y.ravel()], 1)
+    inside = np.zeros(len(pts), bool)
+    for p in polys:                                    # even-odd: holes are separate wires
+        inside ^= Path(p).contains_points(pts)
+    return (np.array(x['a']), np.array(x['b']), np.array(x['long']), np.array(x['centre']), (np.array([lo[0], lo[1]]), cx, cy),
+            inside.reshape(X.shape), x['length'])
+
+
+def is_extrusion(x):
+    a = [sc['area'] for sc in x['sections']]
+    return min(a) > 0 and (max(a) - min(a)) / max(a) < 0.5 and abs(np.mean(a) * x["length"] - x["vol"]) / x["vol"] < 0.1
+
+
 def rectangles(mask, total):
     """disjoint maximal rectangles covering the True cells of mask (largest first)"""
     left = mask.copy(); out = []
@@ -169,7 +191,23 @@ def main(cfg):
     for sel in C['selections']:
         al = np.load(sel['align']); R, t = al['R'], al['t']
         tess = np.load(f"tess_{sel['tag']}.npz"); reg = sel.get('region')
-        for r in load(sel['tag']):
+        try:
+            xsec = json.load(open(f"xsec_{sel['tag']}.json"))
+        except FileNotFoundError:
+            xsec = {}
+        rows = load(sel['tag'])
+        if sel.get('beams'):                               # beams of welded frames (beam_split.py) as extrusions
+            B = json.load(open(sel['beams'])); mats = {str(r['solid']): r['mat'] for r in rows}
+            for sid, ent in B.items():
+                for k, bm in enumerate(ent['beams']):
+                    pid = f'{sid}b{k}'
+                    xsec[pid] = bm
+                    L = bm['length']
+                    rows.append(dict(label=bm['label'], solid=pid, mat=mats[sid], vol=bm['vol'], obb_fill=0.3,
+                                     size=np.array([L, 0.3 * L, 0.3 * L]), axes=np.array([bm['long'], bm['a'], bm['b']]),
+                                     centre=np.array(bm['centre']), com=np.array(bm['centre']),
+                                     ext=np.array([[-L / 2, L / 2]] * 3), colours=[], base=bm['label']))
+        for r in rows:
             if r['mat'] not in sel['materials']:
                 continue
             if sel.get('labels') and not any(r['label'].startswith(l) for l in sel['labels']):
@@ -181,14 +219,17 @@ def main(cfg):
             if r['vol'] < sel.get('min_volume_cm3', 0) * 1e3:
                 continue
             s = np.sort(r['size'])
-            if not (s[0] < 0.25 * s[1] or r['obb_fill'] >= MINFILL):
-                report.append(f"SKIPPED {r['label']} ({r['mat']}): not a plate and OBB fill {r['obb_fill']:.2f} < {MINFILL}")
+            xs = xsec.get(str(r['solid']))
+            extr = xs is not None and is_extrusion(xs) and not (s[0] < 0.25 * s[1] or r['obb_fill'] >= MINFILL)
+            if not (s[0] < 0.25 * s[1] or r['obb_fill'] >= MINFILL or extr):
+                report.append(f"SKIPPED {r['label']} ({r['mat']}): not a plate, no extrusion and OBB fill {r['obb_fill']:.2f} < {MINFILL}")
                 continue
             # small penetrations of the whole solid (along its thin axis): shift it out first
             shift = np.zeros(3)
             wsol = Box(r['centre'], r['axes'], r['size'] / 2).transformed(R, t)
             thin_w = R @ r['axes'][int(np.argmin(r['size']))]
-            for O, lim in [(B, SHIFT_BANK) for B in banks.values()] + [(c, SHIFT_CONTENT) for k in banks for c in content[k]]:
+            for O, lim in ([(B, SHIFT_BANK) for B in banks.values()] + [(c, SHIFT_CONTENT) for k in banks for c in content[k]]
+                           + [(o['world'], SHIFT_CONTENT) for o in avoid] + [(o, SHIFT_CONTENT) for o in world_other]):
                 ws = Box(wsol.c + shift, wsol.A, wsol.h)
                 d = overlap_depth(ws, O)
                 if 0 < d + GAP <= lim + GAP:
@@ -207,11 +248,17 @@ def main(cfg):
             if np.linalg.norm(shift) > 0:
                 report.append(f"shifted {r['label']}#{r['solid']} by {np.linalg.norm(shift):.2f} mm")
             key = f"v{r['solid']}"
-            a, b, n, (lo, cx, cy), grid, thick, zmid = section_grid(
-                r, (tess[key], tess[f"f{r['solid']}"]) if key in tess.files else (None, None), sel.get('raster', RASTER))
+            if extr:                                       # cells: section cell x full length
+                a, b, n, ctr, (lo, cx, cy), grid, thick = extrusion_grid(xs, sel.get('raster', RASTER))
+                zmid = 0.0; base_pt = ctr
+                report.append(f"extrusion {r['label']}#{r['solid']}: section {grid.sum() * cx * cy:.0f} mm2, length {thick:.0f} mm")
+            else:
+                a, b, n, (lo, cx, cy), grid, thick, zmid = section_grid(
+                    r, (tess[key], tess[f"f{r['solid']}"]) if key in tess.files else (None, None), sel.get('raster', RASTER))
+                base_pt = r['com']
             Aw = (R @ np.array([a, b, n]).T).T              # the cells' axes in the world
             ii, jj = np.nonzero(grid)
-            local = r['com'] + np.outer(lo[0] + (ii + 0.5) * cx, a) + np.outer(lo[1] + (jj + 0.5) * cy, b) + zmid * n
+            local = base_pt + np.outer(lo[0] + (ii + 0.5) * cx, a) + np.outer(lo[1] + (jj + 0.5) * cy, b) + zmid * n
             Cw = (R @ local.T).T + t + shift
             hc = np.array([cx / 2, cy / 2, thick / 2])
             cls = np.full(len(Cw), -2)                     # -2 conflict, -1 world, k bank k
@@ -245,6 +292,10 @@ def main(cfg):
                 for O in cal['world'] + [o['world'].transformed(*cal['move'][o['bank']]) for o in out + avoid if o['mother'] == 'world']:
                     keep &= sat_depth_many(Cc, Ac, hc, O) < -GAP
                 idx = idx[keep]
+            if C.get('max_radius_mm') and len(idx):       # e.g. inside the vacuum tank (beam axis = z)
+                off = (np.array([[i, j, k] for i in (-1, 1) for j in (-1, 1) for k in (-1, 1)], float) * hc) @ Aw
+                rmax = np.max([np.hypot(*(Cw[idx] + o)[:, :2].T) for o in off], axis=0)
+                idx = idx[rmax < C['max_radius_mm'] - GAP]
             cls[idx] = -1
             vcell = r['vol'] / max(grid.sum(), 1)            # the solid's volume per section cell
             lost[r['mat']] += (cls == -2).sum() * vcell; kept[r['mat']] += (cls != -2).sum() * vcell
@@ -259,7 +310,7 @@ def main(cfg):
                 for (i0, i1, j0, j1) in rectangles(mask, grid.sum()):
                     ca = lo[0] + (i0 + i1) / 2 * cx; cb = lo[1] + (j0 + j1) / 2 * cy
                     hloc = np.array([(i1 - i0) * cx / 2, (j1 - j0) * cy / 2, thick / 2])
-                    cw = R @ (r['com'] + ca * a + cb * b + zmid * n) + t + shift
+                    cw = R @ (base_pt + ca * a + cb * b + zmid * n) + t + shift
                     wbox = Box(cw, Aw, hloc, f"{r['label'].replace(' ', '_')}#{r['solid']}.{nbox}", r['mat'])
                     nbox += 1
                     loc = wbox.transformed(Rb.T, -Rb.T @ tb)

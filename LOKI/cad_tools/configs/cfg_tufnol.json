@@ -54,5 +54,6 @@
  ],
  "calibrations": [
   "g4_sam606.json"
- ]
+ ],
+ "max_radius_mm": 1620.0
 }

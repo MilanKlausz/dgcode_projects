@@ -1,7 +1,7 @@
 {
  "name": "frames_al",
  "output": "cad_components_frames_al.txt",
- "description": "aluminium plates (and compact parts) of the detector frames, >= 200 cm3: front carriage (SI-7615-678), middle and rear frames (SI-7615-451). Complex (hollow) parts are not included; generated to be compatible with: front_b4c_2021, tufnol",
+ "description": "aluminium plates (and compact parts) of the detector frames, >= 200 cm3: front carriage (SI-7615-678), middle and rear frames (SI-7615-451). hollow beams as extrusions (SI-7615-223_01, -209_01 and the beams of the carriage ring SI-7615-178_01); other complex parts are not included; generated to be compatible with: front_b4c_2021, tufnol",
  "selections": [
   {
    "tag": "678",
@@ -15,7 +15,8 @@
     "SI-7615-102",
     "SI-7615-701",
     "SI-8820-130"
-   ]
+   ],
+   "beams": "beams_678.json"
   },
   {
    "tag": "frames",
@@ -64,5 +65,6 @@
  ],
  "calibrations": [
   "g4_sam606.json"
- ]
+ ],
+ "max_radius_mm": 1620.0
 }

@@ -29,13 +29,13 @@ analyses are unchanged.
 |---|---|---|---|
 | `front_b4c_2021` | the B4C plates added to the front carriage with the updated boron masks (SI-7615-678): SI-7615-695/-696/-697/-703 (side plates, 300 x 600 x 5 mm, outside banks 6/8) and -702/-704 (bottom plates, 250 x 600 x 5 mm, in front of bank 7) | 8 | 5.1 -> 5.0 l |
 | `tufnol` | the Tufnol parts of the detector frames: front carriage (wedge pads -229, plates -217), the Pi-shaped 16 mm frames -558 behind the masks of banks 1/3, the 4 mm side plates of the rear bank (-195, -219, -197, -208); not the small blocks -196 and the wedges -180 (not plate-like) | 67 | 13.2 -> 12.2 l |
-| `frames_al` | aluminium plates (and compact parts) >= 200 cm3 of the front carriage (SI-7615-678) and of the middle and rear frames (SI-7615-451); hollow / complex parts (beams, extrusions) are not included | 422 | 258 -> 178 l |
+| `frames_al` | aluminium plates (and compact parts) >= 200 cm3 of the front carriage (SI-7615-678) and of the middle and rear frames (SI-7615-451), and the hollow beams as extrusions (SI-7615-223_01, -209_01 and the beams of the welded carriage ring SI-7615-178_01, split by `beam_split.py`); other complex parts (brackets) are not included | 613 | 330 -> 225 l |
 | `rail` (pack) | the aluminium C-channel behind the B4C/Al panels of every pack (SI-7615-141/-162), 6 boxes per pack, L + 29 mm long | 6 per pack | 97% of the section |
 
 `tufnol` is generated to be compatible with `front_b4c_2021`, `frames_al` with both (a later set yields to the earlier
 ones where the CAD parts touch). All sets are free of overlaps with the nominal and with the SAM-606 bank placement
 (construction-time check and the dense checks of `dense_check.py`: rear bank at 5 m and 10 m, calibration slits, vacuum
-tank).
+tank; the boxes stay within 1620 mm of the beam axis, inside the default tank radius of 1625 mm).
 
 What is lost (`frames_al`): material where a CAD plate collides with an existing Geant4 volume (a mask passing through
 the footprint of a frame plate; the CAD and Geant4 masks agree within about 3 mm), where it would cross a bank-box face
@@ -72,8 +72,11 @@ Environment: `CAD_MODELS` (the `cad_models` directory), `CAD_WORK` (a work direc
 4. Checks: `pts_cad.py` (points in CAD solids) + `pts_g4.py` (located in Geant4: coverage; points in Geant4 volumes) +
    `pts_support.py` (support by CAD solids); `shadow.py` (fraction of a solid in front of the tubes as seen from a
    source, and whether a boron mask shields it); `plot_cad.py` (projections with the bank boxes).
-5. A set: `python gen_components.py configs/cfg_<set>.json` (plates are rasterised in their plane, every cell is
+5. Hollow beams: `extrude_sections.py` (sections of elongated non-box solids at 25/50/75% of their length: an extrusion
+   has equal sections) and `beam_split.py` (a welded frame of straight beams split into beams, each an extrusion).
+6. A set: `python gen_components.py configs/cfg_<set>.json` (plates are rasterised in their plane, every cell is
    classified as inside bank b / outside the banks / conflict with a separating-axis test against the bank boxes, their
    content, the world volumes, the other sets (`avoid`) and the calibrated placements (`calibrations`); each class is
    covered by disjoint rectangles). Pack sets: `slice.py` + `gen_pack.py`.
-6. Copy the data file to `G4GeoLoki/data/`, rebuild, run `dense_check.py` (all sets together).
+7. Copy the data file to `G4GeoLoki/data/`, rebuild, run `dense_check.py` (all sets together); `plot_components.py`
+   draws the Geant4 boxes over the CAD silhouettes.
