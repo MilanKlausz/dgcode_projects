@@ -51,9 +51,12 @@ and the rear frame plates -119/-121/-123.
 * Boron masks: every rectangular mask of the front banks (SI-7615-678), of the middle banks and of the rear bank
   (SI-7615-451) is within about 1 mm of its CAD plate; the Geant4 boxes cover 98-100% of the CAD plates and every
   Geant4 mask lies on CAD B4C (point tests with a +-3 mm tolerance across the 5 mm plates). Non-rectangular plates are
-  decomposed into boxes of the right area (SI-7615-103: 250 x 1119 + 2 x 173 x 305; -490 likewise). Simplifications
-  found: the rear masks SI-7615-221 are two 870 mm halves staggered by about +-4 mm in depth (one 1740 mm box in
-  Geant4); the boxes 1-5/1-6/3-5/3-6 (the decomposition of -490) are about 3 mm deeper than the CAD plate.
+  decomposed into boxes of the right area (SI-7615-103: 250 x 1119 + 2 x 173 x 305; -490 likewise). The rear masks
+  0-0/0-2 (one 1740 mm box each) are the two 870 mm plates SI-7615-221 of each side, at the same depth (59.00 mm in front of
+  -222/-223 in the CAD, 59 mm in the Geant4 table); the boxes 1-5/1-6/1-7 coincide with SI-7615-490 (plane offsets to the
+  neighbouring masks equal within 0.05 mm). Note: an alignment fitted only to plates near the centre line of a frame can be
+  rotated by a fraction of a degree (the first rear-frame fit was off by 0.44 deg, which made the -221 plates look staggered
+  by +-4 mm); `align_full.py` fits all plates by their corners (residuals <= 1.4 mm).
 * The triangular masks (SI-7615-691 to -694) agree with the CAD parts.
 * The front masks follow the updated design of SI-7615-678 (2021: -476/-511 210 mm wide, -477/-510 1045 mm long).
 
@@ -68,7 +71,7 @@ Environment: `CAD_MODELS` (the `cad_models` directory), `CAD_WORK` (a work direc
    Materials (`cadlib.py`): colours plus the B4C part list of `Loki detector frame B4C component matrix.pdf`.
 2. The Geant4 geometry: `python g4dump.py g4_nominal.json` (and `bank_calibration=2026-September-SAM-606` for
    `g4_sam606.json`).
-3. Alignment CAD -> Geant4 world (`align.py`): from the B4C plates that match Geant4 masks. SI-7615-678 is already in the
+3. Alignment CAD -> Geant4 world (`align.py`, refined with `align_full.py`): from the B4C plates that match Geant4 masks. SI-7615-678 is already in the
    Geant4 frame (axes permuted, offset 0); the frames of SI-7615-451 are placed one by one (`align_subset`).
 4. Checks: `pts_cad.py` (points in CAD solids) + `pts_g4.py` (located in Geant4: coverage; points in Geant4 volumes) +
    `pts_support.py` (support by CAD solids); `shadow.py` (fraction of a solid in front of the tubes as seen from a

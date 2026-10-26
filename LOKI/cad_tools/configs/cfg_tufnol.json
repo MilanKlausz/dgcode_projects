@@ -17,7 +17,7 @@
   {
    "tag": "frames",
    "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp",
-   "align": "align_frames_mid13.npz",
+   "align": "align_frames_mid_v2.npz",
    "region": [
     9500,
     11500,
@@ -34,7 +34,7 @@
   {
    "tag": "frames",
    "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp",
-   "align": "align_frames_rear.npz",
+   "align": "align_frames_rear_v2.npz",
    "region": [
     12000,
     15000,
