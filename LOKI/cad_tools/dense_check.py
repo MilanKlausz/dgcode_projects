@@ -7,7 +7,7 @@ sets = sys.argv[1] if len(sys.argv) > 1 else 'front_b4c_2021,tufnol'
 for cal in ('nominal-geant4-geometry', '2026-September-SAM-606'):
     for extra in ({}, {'rear_detector_distance_m': 10.0, 'with_calibration_slits': True},
                   {'vacuum_tank_wall_mm': 10.0, 'rear_detector_distance_m': 9.985615, 'world_material': 'G4_AIR', 'pack_fill_material': 'G4_AIR'}):
-        geo = GEO.create(); geo.bank_calibration = cal; geo.cad_components = sets; geo.cad_pack_components = 'rail'
+        geo = GEO.create(); geo.bank_calibration = cal; geo.cad_components = sets; geo.cad_pack_components = 'rail,ends'
         for k, v in extra.items():
             setattr(geo, k, v)
         with captured_fd_output() as lines:
