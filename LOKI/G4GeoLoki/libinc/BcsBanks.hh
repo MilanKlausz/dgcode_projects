@@ -26,6 +26,10 @@ struct BankTransform {
 /// by BcsTube and BcsPack, the masks by BoronMasks and CalibMasks (the rear calibration mask plate).
 class BcsBanks {
 public:
+  /// The names of all absorbing volumes (B4C masks, triangular masks, beamstop, the B4C and Al panel parts of the packs,
+  /// the Gd paint of the rear calibration mask plate), for the masking analysis and its GRIFF output filter.
+  static const std::vector<std::string>& getAbsorberVolumeNames();
+  static bool isAbsorberVolume(const std::string& volumeName);
   /// bankCalibration: the name of the bank calibration (see BankCalibration.hh), the default is the
   /// nominal geometry.
   BcsBanks(double rearBankDistance, int numberOfBanks = 9, const std::string& bankCalibration = BankCalibration::nominalName);

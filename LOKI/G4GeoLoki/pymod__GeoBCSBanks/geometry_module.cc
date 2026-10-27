@@ -160,7 +160,8 @@ GeoBCS::GeoBCS()
   addParameterString("boron_mask_banks", "all");
   // the triangular B4C masks of banks 5 and 7 (part of their design masks; switch them off separately)
   addParameterBoolean("with_triangular_masks", true);
-  // individual design masks not present: "bank:mask,mask;bank:..." (the mask ids of the volume names BoronMask-<bank>-<mask>)
+  // individual design masks not present: "bank:mask,mask;bank:..." (the mask ids: the indices of the mask tables of
+  // BoronMasks.cc; the volume names are BoronMask-<bank>-<CAD drawing>[.<k>], see BoronMasks::getName)
   addParameterString("boron_mask_exclude", "");
   // design masks drawn in colour in the viewers (display only, same format as boron_mask_exclude): red, and orange
   addParameterString("highlight_boron_masks", "");
@@ -209,8 +210,8 @@ GeoBCS::GeoBCS()
 G4LogicalVolume * GeoBCS::createTubeLV(double converterThickness, double strawLength){
   const double effectiveStrawLength = strawLength - BcsTube::getStrawWallThickness(); //This is only epsilon difference...
 
-  auto lv_tube = new G4LogicalVolume(new G4Tubs("TubeWall",0,  BcsTube::getTubeOuterRadius(), 0.5*strawLength, 0., 2*M_PI),
-                                     BcsTube::tubeWallMaterial, "TubeWall");
+  auto lv_tube = new G4LogicalVolume(new G4Tubs(BcsTube::tubeWallName, 0, BcsTube::getTubeOuterRadius(), 0.5*strawLength, 0., 2*M_PI),
+                                     BcsTube::tubeWallMaterial, BcsTube::tubeWallName);
 
   auto lv_empty_tube = place(new G4Tubs("EmptyTube", 0., BcsTube::getTubeInnerRadius(), 0.5*strawLength, 0., 2*M_PI),
                              BcsTube::tubeInnerGas, 0,0,0, lv_tube, G4Colour(0,1,1),-2,0,0).logvol;
@@ -252,15 +253,15 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
   const double B4CLengthHalf = 0.5*strawLength + BcsPack::getB4CLengthOverStrawOnOneEnd();
 
   auto B4CPanelMaterial = getParameterMaterial("B4C_panel_material");
-  for (int partId = 0; partId < 3; partId++){
-    place(new G4Box("B4CPanel", 0.5*BcsPack::getB4CPartThickness(partId), 0.5*BcsPack::getB4CPartHeight(partId), B4CLengthHalf),
+  for (int partId = 0; partId < BcsPack::getNumberOfB4CParts(); partId++){
+    place(new G4Box(BcsPack::getB4CPartName(partId), 0.5*BcsPack::getB4CPartThickness(partId), 0.5*BcsPack::getB4CPartHeight(partId), B4CLengthHalf),
           B4CPanelMaterial,
           BcsPack::getB4CPartHorizontalOffset(partId), BcsPack::getB4CPartVerticalOffset(partId), 0,
           lv_pack_box, G4Colour(0, 1, 0), -2, 0, new G4RotationMatrix());
     }
   /// Add Al behing the B4C panel in 2 parts ///
-  for (int partId = 0; partId < 2; partId++){
-    place(new G4Box("AlPanel", 0.5*BcsPack::getAlPartThickness(partId), 0.5*BcsPack::getAlPartHeight(partId), B4CLengthHalf),
+  for (int partId = 0; partId < BcsPack::getNumberOfAlParts(); partId++){
+    place(new G4Box(BcsPack::getAlPartName(partId), 0.5*BcsPack::getAlPartThickness(partId), 0.5*BcsPack::getAlPartHeight(partId), B4CLengthHalf),
           BcsPack::AlPanelMaterial,
           BcsPack::getAlPartHorizontalOffset(partId),  BcsPack::getAlPartVerticalOffset(partId), 0,
           lv_pack_box, SILVER, -2, 0, new G4RotationMatrix());
@@ -306,7 +307,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   for (int maskId = 0; maskId < numberOfBoronMasks; ++maskId){
     if (isExcludedBoronMask(bankId, maskId))
       continue;
-    const std::string maskName = "BoronMask-"+std::to_string(bankId)+"-"+std::to_string(maskId);
+    const std::string maskName = BoronMasks::getName(bankId, maskId);
     const auto maskSize = BoronMasks::getSizeInBankFrame(bankId, maskId);
     const auto maskPosition = banks->getBoronMaskPositionInBankFrame(bankId, maskId);
     const G4Colour maskColour = isListedBoronMask("highlight_boron_masks", bankId, maskId) ? G4Colour(1, 0, 0)
@@ -320,7 +321,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   // Add Beamstop to the Rear Bank volume
   const int beamstopId = getParameterInt("beamstop_id");
   if (bankId == 0 && beamstopId) { // beamstopId==0 means no beamstop
-    const std::string maskName = "BoronMask-Beamstop";
+    const std::string maskName = BoronMasks::beamstopName;
     const double detBankFrontDistance = banks->detectorSystemFrontDistanceFromBankFront(bankId);
     const double distanceFromDetectorFront = 5*Units::cm;
 
@@ -348,25 +349,24 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     // tubes, z = along the tubes; centred on the bank (as the design mask)
     const double tubeFront = BcsBanks::getTubeFrontPositionInBankFrame(bankId);
     const double gap = getParameterDouble("calibration_plate_gap_mm") * Units::mm;
-    const double plateThickness = 2.0 * Units::mm, faceHeight = 1742.0 * Units::mm, faceWidth = 996.0 * Units::mm;
+    using Plate = CalibMasks::RearPlate;
+    const double plateThickness = Plate::thickness * Units::mm, faceHeight = Plate::faceHeight * Units::mm;
+    const double faceWidth = Plate::faceWidth * Units::mm;
     const double paintThickness = getParameterDouble("calibration_paint_thickness_mm") * Units::mm;
     const double plateX = tubeFront - gap - 0.5 * plateThickness;
-    place(new G4Box("CalibPlate-0", 0.5 * plateThickness, 0.5 * faceHeight, 0.5 * faceWidth),
+    place(new G4Box(Plate::getPlateName(), 0.5 * plateThickness, 0.5 * faceHeight, 0.5 * faceWidth),
           getParameterMaterial("calibration_plate_material"), plateX, 0., 0., lv_bank, G4Colour(0.75, 0.75, 0.75), -5, 0,
           new G4RotationMatrix());
     if (paintThickness > 0) {
-      // the paint between the side walls (992 mm): 43 mm paint, then (6 mm slit, 94 mm paint) x 9, 6 mm slit, 43 mm paint
-      // (slit centres at +-50, ..., +-450 mm from the centre)
-      std::vector<double> pattern = {43.0};
-      for (int k = 0; k < 9; ++k) { pattern.push_back(6.0); pattern.push_back(94.0); }
-      pattern.push_back(6.0); pattern.push_back(43.0);
+      // the paint between the side walls: paint strips and slits (Plate::getPaintPattern)
+      const std::vector<double> pattern = Plate::getPaintPattern();
       const double paintX = plateX - 0.5 * plateThickness - 0.5 * paintThickness;
       auto paintMaterial = getParameterMaterial("calibration_paint_material");
-      double offset = -0.5 * 992.0 * Units::mm;
+      double offset = -0.5 * Plate::paintedWidth * Units::mm;
       for (size_t i = 0; i < pattern.size(); ++i) {
         const double w = pattern[i] * Units::mm;
         if (i % 2 == 0)
-          place(new G4Box("CalibPaint-0-" + std::to_string(i / 2), 0.5 * paintThickness, 0.5 * faceHeight, 0.5 * w),
+          place(new G4Box(Plate::getPaintName(static_cast<int>(i / 2)), 0.5 * paintThickness, 0.5 * faceHeight, 0.5 * w),
                 paintMaterial, paintX, 0., offset + 0.5 * w, lv_bank, DARKPURPLE, -5, 0, new G4RotationMatrix());
         offset += w;
       }
@@ -451,8 +451,7 @@ G4LogicalVolume *GeoBCS::createTriangularMaskLV(int maskId){
     auto cutCentre = G4ThreeVector(xCutDir * (xHalf - xCutHalf * cos(alpha) + yCutHalf * sin(alpha)), yCutDir * (-(ySideToCut - yHalf) + xCutHalf * sin(alpha) + yCutHalf * cos(alpha)), 0);
     auto triangularMask = new G4SubtractionSolid("TriangularMask", triangularMaskBox, triangularMaskCut, cutRotationMatrix, cutCentre);
 
-    const int bankId = BoronMasks::getBankIdOfTriangularMask(maskId);
-    const std::string maskName = "BoronMask-triangular-"+std::to_string(bankId)+"-"+std::to_string(maskId);
+    const std::string maskName = BoronMasks::getNameOfTriangularMask(maskId);
     auto lv_triangularMask = new G4LogicalVolume(triangularMask, BoronMasks::maskMaterial, maskName);
 
     return lv_triangularMask;

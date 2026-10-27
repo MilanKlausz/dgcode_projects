@@ -2,6 +2,7 @@
 #define G4GeoLoki_BcsPack_hh
 
 #include "G4Materials/NamedMaterialProvider.hh"
+#include <string>
 
 class BcsPack {
 public:
@@ -28,6 +29,9 @@ public:
   static G4Material* B4CPanelMaterial;
   static double getB4CLengthOverStrawOnOneEnd();
 
+  /// The B4C panel (CAD part SI-7615-143_01, S-DOUGH) as boxes: "B4CPanel-SI-7615-143_01.<partId>"
+  static int getNumberOfB4CParts();
+  static std::string getB4CPartName(const int partId);
   static double getB4CPartThickness(const int partId);
   static double getB4CPartHeight(const int partId);
   static double getB4CPartHorizontalOffset(const int partId);
@@ -35,6 +39,9 @@ public:
 
   /// Al panel parts ///
   static G4Material* AlPanelMaterial;
+  /// The Al panel (CAD part SI-7615-142) as boxes: "AlPanel-SI-7615-142.<partId>"
+  static int getNumberOfAlParts();
+  static std::string getAlPartName(const int partId);
   static double getAlPartThickness(const int partId);
   static double getAlPartHeight(const int partId);
   static double getAlPartHorizontalOffset(const int partId);

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <array>
 #include <cassert>
+#include <set>
 
 // The banks: the tables (also those of the nominal placement, used in BcsBanksPlacement.cc), the dimensions and
 // content of the banks, the tube numbering, the masks and the beamstop (see BcsBanks.hh).
@@ -361,3 +362,28 @@ double BcsBanks::getBeamstopSize(const int beamstopId, const int axisIndex) { //
 // collen = 8 m
 //   rear det dist = 5 -> bs 3
 //   rear det dist = 10 -> bs 4
+
+const std::vector<std::string>& BcsBanks::getAbsorberVolumeNames() {
+  static const std::vector<std::string> names = [] {
+    std::vector<std::string> out;
+    for (int bankId = 0; bankId < 9; ++bankId)
+      for (int maskId = 0; maskId < BoronMasks::getNumberOfBoronMasks(bankId); ++maskId)
+        out.push_back(BoronMasks::getName(bankId, maskId));
+    for (int maskId = 0; maskId < 4; ++maskId)
+      out.push_back(BoronMasks::getNameOfTriangularMask(maskId));
+    out.push_back(BoronMasks::beamstopName);
+    for (int partId = 0; partId < BcsPack::getNumberOfB4CParts(); ++partId)
+      out.push_back(BcsPack::getB4CPartName(partId));
+    for (int partId = 0; partId < BcsPack::getNumberOfAlParts(); ++partId)
+      out.push_back(BcsPack::getAlPartName(partId));
+    for (int k = 0; k < CalibMasks::RearPlate::getNumberOfPaintStrips(); ++k)
+      out.push_back(CalibMasks::RearPlate::getPaintName(k));
+    return out;
+  }();
+  return names;
+}
+
+bool BcsBanks::isAbsorberVolume(const std::string& volumeName) {
+  static const std::set<std::string> names(getAbsorberVolumeNames().begin(), getAbsorberVolumeNames().end());
+  return names.count(volumeName) > 0;
+}

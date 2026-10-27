@@ -64,3 +64,5 @@ double BcsTube::getStrawPositionY(const int strawId) {
   assert(0 <= strawId && strawId <= 6);
   return strawPositionsInTube[strawId][1];
 }
+
+const std::string BcsTube::tubeWallName = "TubeWall-SI-7615-061";

@@ -2,6 +2,8 @@
 #include "Units/Units.hh"
 #include <cmath>
 #include <cassert>
+#include <string>
+#include <cassert>
 
 const double BcsPack::tubeGridParallelogramBase = 27.00 *Units::mm;
 const double BcsPack::tubeGridParallelogramSide = 28.40 *Units::mm;
@@ -169,4 +171,15 @@ double BcsPack::getAlPartVerticalOffset(const int partId){
   else {
     return getB4CPartVerticalOffset(2);
   }
+}
+
+int BcsPack::getNumberOfB4CParts() { return 3; }
+int BcsPack::getNumberOfAlParts() { return 2; }
+std::string BcsPack::getB4CPartName(const int partId) {
+  assert(0 <= partId && partId < getNumberOfB4CParts());
+  return "B4CPanel-SI-7615-143_01." + std::to_string(partId);
+}
+std::string BcsPack::getAlPartName(const int partId) {
+  assert(0 <= partId && partId < getNumberOfAlParts());
+  return "AlPanel-SI-7615-142." + std::to_string(partId);
 }

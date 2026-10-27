@@ -105,7 +105,7 @@ def run(calibration, N):
                 continue
             st = seg.lastStep()
             names = [seg.volumeName(d) for d in range(7)]
-            chk.check(names == ['Converter', 'StrawWall', 'EmptyTube', 'TubeWall', 'EmptyPackBox', 'Bank', 'World'],
+            chk.check(names == ['Converter', 'StrawWall', 'EmptyTube', LokiAim.TUBE_WALL_NAME, 'EmptyPackBox', 'Bank', 'World'],
                       f'unexpected volume chain {names}')
             b, t, s = seg.volumeCopyNumber(5), seg.volumeCopyNumber(3), seg.volumeCopyNumber(1)
             position = (st.postGlobalX(), st.postGlobalY(), st.postGlobalZ())

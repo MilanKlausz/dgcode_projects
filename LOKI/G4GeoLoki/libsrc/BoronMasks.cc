@@ -83,6 +83,71 @@ const std::array<std::array<double, 7>, 8> BoronMasks::frontVerticalBoronMasks =
     {173.0, 5.0, 305.0 - 0.05, 173.0 + 1119.0, 71.20, 5.25, 13.45}  // top: right
 }};
 
+/// the CAD parts of the masks (ESS drawing numbers, in the order of the tables above; the bank frame assemblies:
+/// SI-7615-124 rear, -408 middle top/bottom, -409 middle left/right, -107 front top, -127 front bottom, -126 front left,
+/// -105 front right). Matched to the STEP models (SI-7615-678 front carriage with the updated masks, Loki detector frames
+/// export) by the overlap of the CAD solids with the boxes. Banks 2/4, masks 3-7: from the frame structure (-559 and
+/// the sub-assembly -554 = -555 + -556, as -117 and -489 = -488 + -490 of banks 1/3), not matched geometrically.
+const std::array<const char*, 6> BoronMasks::rearDrawings = {
+  "SI-7615-221", "SI-7615-222", "SI-7615-221", "SI-7615-223", "SI-7615-192_01", "SI-7615-192_01"};
+const std::array<const char*, 8> BoronMasks::midHorizontalDrawings = {
+  "SI-7615-485", "SI-7615-485", "SI-7615-486", "SI-7615-117", "SI-7615-488", "SI-7615-490", "SI-7615-490", "SI-7615-490"};
+const std::array<const char*, 8> BoronMasks::midVerticalDrawings = {
+  "SI-7615-492", "SI-7615-492", "SI-7615-493", "SI-7615-559", "SI-7615-555", "SI-7615-556", "SI-7615-556", "SI-7615-556"};
+const std::array<const char*, 8> BoronMasks::frontTopDrawings = {
+  "SI-7615-476", "SI-7615-476", "SI-7615-477", "SI-7615-104", "SI-7615-519", "SI-7615-103", "SI-7615-103", "SI-7615-103"};
+// (the B4C component matrix lists -479 instead of -519 for the front bottom frame; the CAD model has -519)
+const std::array<const char*, 8> BoronMasks::frontBottomDrawings = {
+  "SI-7615-511", "SI-7615-511", "SI-7615-510", "SI-7615-104", "SI-7615-519", "SI-7615-103", "SI-7615-103", "SI-7615-103"};
+const std::array<const char*, 8> BoronMasks::frontVerticalDrawings = {
+  "SI-7615-513", "SI-7615-513", "SI-7615-512", "SI-7615-104", "SI-7615-479", "SI-7615-103", "SI-7615-103", "SI-7615-103"};
+const std::array<const char*, 4> BoronMasks::triangularDrawings = {"SI-7615-691", "SI-7615-692", "SI-7615-693", "SI-7615-694"};
+const std::string BoronMasks::beamstopName = "BoronMask-Beamstop";
+
+std::string BoronMasks::getDrawing(const int bankId, const int maskId) {
+  assert(0 <= maskId && maskId < getNumberOfBoronMasks(bankId));
+  switch (bankId) {
+  case 0:
+    return rearDrawings[maskId];
+  case 1:
+  case 3:
+    return midHorizontalDrawings[maskId];
+  case 2:
+  case 4:
+    return midVerticalDrawings[maskId];
+  case 5:
+    return frontTopDrawings[maskId];
+  case 6:
+  case 8:
+    return frontVerticalDrawings[maskId];
+  default:
+    return frontBottomDrawings[maskId];
+  }
+}
+
+std::string BoronMasks::getName(const int bankId, const int maskId) {
+  const std::string drawing = getDrawing(bankId, maskId);
+  int count = 0, index = 0;
+  for (int m = 0; m < getNumberOfBoronMasks(bankId); ++m) {
+    if (getDrawing(bankId, m) != drawing)
+      continue;
+    if (m < maskId)
+      ++index;
+    ++count;
+  }
+  return "BoronMask-" + std::to_string(bankId) + "-" + drawing + (count > 1 ? "." + std::to_string(index) : "");
+}
+
+std::string BoronMasks::getDrawingOfTriangularMask(const int maskId) {
+  assert(0 <= maskId && maskId <= 3);
+  return triangularDrawings[maskId];
+}
+
+std::string BoronMasks::getNameOfTriangularMask(const int maskId) {
+  return "BoronMask-triangular-" + std::to_string(static_cast<int>(getBankIdOfTriangularMask(maskId))) + "-"
+         + getDrawingOfTriangularMask(maskId);
+}
+
 double BoronMasks::getBoronMaskParameter(const int bankId, const int maskId, const int parameterIndex) {
   assert(0 <= bankId && bankId <= 8);
   assert(0 <= parameterIndex && parameterIndex <= 7);

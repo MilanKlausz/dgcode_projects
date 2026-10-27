@@ -99,7 +99,7 @@ def run(title, rear_m, n, geo_args, calibration=NOMINAL, straws=range(NSTRAWS)):
                 print(f'  target pixel {target} (bank {b} tube {t} straw {s}) not crossed: {" ".join(crossings) or "no straws"}')
         elif found:
             nshadowed[b] += 1
-            shadowing[b][re.sub(r'^(BoronMask-\d)-\d+$', r'\1-*', found)] += 1
+            shadowing[b][re.sub(r'^(BoronMask-\d|CalibPaint-\d)-SI-.*$', r'\1-*', found)] += 1
     chk.check(nfail == 0, f'{nfail} targets not crossed by their geantino')
     for b in sorted(ntargets):
         print(f'  bank {b}: {ntargets[b]} targets, all crossed: {"yes" if nfail == 0 else "NO"}, '
