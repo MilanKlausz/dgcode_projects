@@ -196,7 +196,7 @@ def world(**pars):
     construct(**pars)
     return TU.world_tree()
 
-for pars in (dict(), dict(rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True)):
+for pars in (dict(), dict(rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True)):
     tree_nominal = world(**pars)
     tree_calibrated = world(bank_calibration=from_nominal, **pars)
     same_structure = [v[:4] for v in tree_nominal] == [v[:4] for v in tree_calibrated]

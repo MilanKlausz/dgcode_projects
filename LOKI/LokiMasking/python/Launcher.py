@@ -49,8 +49,8 @@ def launch(geo):
         "BoronMask-2-0", "BoronMask-2-1", "BoronMask-2-2", "BoronMask-2-3",  "BoronMask-2-4", "BoronMask-2-5", "BoronMask-2-6", "BoronMask-2-7",
         "BoronMask-1-0", "BoronMask-1-1", "BoronMask-1-2", "BoronMask-1-3",  "BoronMask-1-4", "BoronMask-1-5", "BoronMask-1-6", "BoronMask-1-7",
         "BoronMask-0-0", "BoronMask-0-1", "BoronMask-0-2", "BoronMask-0-3",  "BoronMask-0-4", "BoronMask-0-5",
-        # the beamstop (beamstop_id) and the calibration slit masks (with_calibration_slits) absorb as well
-        "BoronMask-Beamstop", *[f"BoronMask-lokiStandard-{bankId}" for bankId in range(9)] ]
+        # the beamstop (beamstop_id) absorbs as well
+        "BoronMask-Beamstop" ]
         import G4CollectFilters.StepFilterVolume
         f = G4CollectFilters.StepFilterVolume.create()
         f.volumeList = griff_output_volumes

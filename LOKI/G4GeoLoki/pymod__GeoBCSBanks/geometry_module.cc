@@ -37,8 +37,6 @@ private:
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
   G4LogicalVolume * createBankLV(int bankId);
   G4LogicalVolume * createTriangularMaskLV(int maskId);
-  G4LogicalVolume * createCalibrationMaskLV(CalibMasks::CalibMasksBase calibMask);
-  bool hasCalibrationSlits(int bankId);
   bool hasBoronMasks(int bankId);
   bool isExcludedBoronMask(int bankId, int maskId);
   bool isListedBoronMask(const std::string& parameter, int bankId, int maskId);
@@ -147,17 +145,11 @@ GeoBCS::GeoBCS()
   // declare all parameters that can be used from the command line,
   addParameterDouble("rear_detector_distance_m", 5.0, 4.0, 10.0); // default, min, max
   addParameterInt("beamstop_id", 0, 0, 5); // id [1-5] from ESS-1178830 Table 4.6 'Selected beamstop sizes' (0 = no beamstop)
-  // calibration slit masks (94 mm absorber / 6 mm slit, 0.3 mm thick, 7.6 mm in front of the tubes):
-  // calibration_slit_banks: the banks with a slit mask ("all", "none", or e.g. "0" or "0,5-8");
-  // with_calibration_slits=yes is the same as calibration_slit_banks=all (kept for existing scripts)
-  addParameterBoolean("with_calibration_slits", false);
-  addParameterString("calibration_slit_banks", "");
-  addParameterString("calibration_slit_material", "MAT_B4C:b10_enrichment=0.95"); // e.g. G4_Cd
-  // the slit mask of the rear bank: "SI-7615-993" (the manufactured REAR CALIBRATION MASK PLATE, drawing ESS-5767239 /
+  // the calibration mask of the rear bank (the manufactured REAR CALIBRATION MASK PLATE, drawing ESS-5767239 /
   // SI-7615-993: a 2 mm aluminium sheet, its front face painted with Gd2O3 paint except ten 6 mm bare slits, the face
   // 1742 mm tall and 992 mm wide between its side walls, mounted with its lips on the front of the bank's side plates,
-  // the face 51 mm deeper) or "design" (the older design pattern lokiStandard-0 of calibration_slit_material)
-  addParameterString("rear_calibration_mask", "SI-7615-993");
+  // the face 51 mm deeper; see CalibMasks::RearPlate)
+  addParameterBoolean("with_rear_calibration_mask", false);
   addParameterDouble("calibration_plate_gap_mm", 8.0, 0.0, 50.0);         // back of the 2 mm sheet - front of the tubes
   addParameterDouble("calibration_paint_thickness_mm", 0.15, 0.0, 5.0);   // the Gd2O3 paint layer (not specified; 0.15 mm fits run 360)
   // 50% polyurethane varnish (approximated as C25H42N2O6, 1.2 g/cm3) + 50% Gd2O3 (7.41 g/cm3) by weight
@@ -276,33 +268,6 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
   return lv_pack_box;
 }
 
-///////////  CREATE CALIBRATION SLIT LOGICAL VOLUME  //////////////////////////
-G4LogicalVolume *GeoBCS::createCalibrationMaskLV(CalibMasks::CalibMasksBase calibMask){
-  const std::string maskName = "BoronMask-"+calibMask.getName();
-  const double maskThicknessHalf = 0.5*calibMask.getThickness();
-  const double maskHeightHalf = 0.5*calibMask.getHeight();
-  const double maskFullWidthHalf = 0.5*calibMask.getWidth();
-
-  auto lv_calibrationMask = new G4LogicalVolume(new G4Box("EmptyCalibMaskBox", maskThicknessHalf, maskHeightHalf, maskFullWidthHalf), CalibMasks::maskBoxMaterial, "CalibMaskBox");
-  auto slitMaterial = getParameterMaterial("calibration_slit_material");
-
-  double offset = 0.0;
-  int i = 0;
-  const auto pattern = calibMask.getPattern();
-  for(auto part = pattern.begin(); part != pattern.end(); part++,i++ ) {
-    const double partWidth = *part;
-    if(i % 2 == 0) { //The pattern is: maskPart ,slit, maskPart, slit...
-      place(new G4Box(maskName, maskThicknessHalf, maskHeightHalf, 0.5*partWidth),
-          slitMaterial,
-          0., 0., -maskFullWidthHalf + offset + 0.5*partWidth,
-          lv_calibrationMask, DARKPURPLE, -5, 0, new G4RotationMatrix());
-    }
-    offset += partWidth;
-  }
-  return lv_calibrationMask;
-}
-
-
 ///////////  CREATE DETECTOR BANK LOGICAL VOLUME  //////////////////////////
 G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   const int numberOfPacks = banks->getNumberOfPacksByBankId(bankId);
@@ -378,7 +343,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
           lv_bank, BLACK, -5, 0, new G4RotationMatrix());
   }
 
-  if (hasCalibrationSlits(bankId) && bankId == 0 && getParameterString("rear_calibration_mask") == "SI-7615-993") {
+  if (bankId == 0 && getParameterBoolean("with_rear_calibration_mask")) {
     // the REAR CALIBRATION MASK PLATE (drawing SI-7615-993), bank frame: x = depth (front at -0.5*depth), y = across the
     // tubes, z = along the tubes; centred on the bank (as the design mask)
     const double tubeFront = BcsBanks::getTubeFrontPositionInBankFrame(bankId);
@@ -409,15 +374,6 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     printf("GeoBCSBanks: rear calibration mask SI-7615-993: 2 mm %s sheet %g mm in front of the tubes, %g mm %s paint, "
            "slits 6 mm at +-50..+-450 mm\n", getParameterString("calibration_plate_material").c_str(), gap / Units::mm,
            paintThickness / Units::mm, getParameterString("calibration_paint_material").c_str());
-  }
-  else if (hasCalibrationSlits(bankId)) {
-    std::string calibMaskName = "lokiStandard-"+std::to_string(bankId);
-    const auto calibMask = CalibMasks::getCalibMask(calibMaskName);
-    auto lv_calibrationMask = createCalibrationMaskLV(calibMask);
-
-    const auto calibMaskPosition = banks->getCalibMaskPositionInBankFrame(calibMask, bankId);
-    place(lv_calibrationMask, calibMaskPosition[0], calibMaskPosition[1], calibMaskPosition[2],
-          lv_bank, PURPLE, -5, 0, new G4RotationMatrix());
   }
 
   // Absorber plates lying on the outer tube row (inside the bank volume; bank frame: x = depth, y = across the tubes)
@@ -646,12 +602,6 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 }
 
 
-bool GeoBCS::hasCalibrationSlits(int bankId) {
-  if (getParameterBoolean("with_calibration_slits"))
-    return true;
-  return parseBankList(getParameterString("calibration_slit_banks")).count(bankId) > 0;
-}
-
 bool GeoBCS::isExcludedBoronMask(int bankId, int maskId) {
   return isListedBoronMask("boron_mask_exclude", bankId, maskId);
 }
@@ -681,13 +631,6 @@ bool GeoBCS::hasBoronMasks(int bankId) {
 bool GeoBCS::validateParameters() {
   // you can apply conditions to control the sanity of the geometry parameters and warn the user of possible mistakes
   // a nice example: Projects/SingleCell/G4GeoSingleCell/libsrc/GeoB10SingleCell.cc
-  {
-    const std::string rearMask = getParameterString("rear_calibration_mask");
-    if (rearMask != "SI-7615-993" && rearMask != "design") {
-      printf("ERROR: rear_calibration_mask must be \"SI-7615-993\" or \"design\" (got \"%s\")\n", rearMask.c_str());
-      return false;
-    }
-  }
   double rear_detector_distance = getParameterDouble("rear_detector_distance_m")*Units::m;
   const std::string bankCalibration = getParameterString("bank_calibration");
   try {
@@ -698,17 +641,12 @@ bool GeoBCS::validateParameters() {
     return false;
   }
   try {
-    parseBankList(getParameterString("calibration_slit_banks"));
     parseBankList(getParameterString("boron_mask_banks"));
     parseAbsorberStrips(getParameterString("absorber_strips"));
     parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate (bank,x1,y1,z1,x2,y2,z2,width,thickness[,distance])", 1);
   }
   catch (const std::exception& error) {
     printf("ERROR: %s\n", error.what());
-    return false;
-  }
-  if (getParameterBoolean("with_calibration_slits") && !parseBankList(getParameterString("calibration_slit_banks")).empty()) {
-    printf("ERROR: give either with_calibration_slits=yes (all banks) or calibration_slit_banks, not both\n");
     return false;
   }
   if (getParameterDouble("vacuum_tank_wall_mm") > 0) {

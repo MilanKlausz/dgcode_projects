@@ -23,7 +23,7 @@ struct BankTransform {
 
 /// The LOKI detector banks: their dimensions and content (BcsBanks.cc), their placement in the world
 /// (BcsBanksPlacement.cc) and the notch of the banks 6 and 8 (BcsBanksNotch.cc). The tubes and packs are described
-/// by BcsTube and BcsPack, the masks by BoronMasks and CalibMasks.
+/// by BcsTube and BcsPack, the masks by BoronMasks and CalibMasks (the rear calibration mask plate).
 class BcsBanks {
 public:
   /// bankCalibration: the name of the bank calibration (see BankCalibration.hh), the default is the
@@ -74,8 +74,6 @@ public:
   ///////// Masks and beamstop (BcsBanks.cc) /////////
   static double getBoronMaskPosition(const int bankId, const int maskId, const int axisIndex);
   static std::array<double,3> getBoronMaskPositionInBankFrame(const int bankId, const int maskId);
-  double getCalibMaskPosition(CalibMasks::CalibMasksBase calibMask,const int bankId, const int axisIndex) const;
-  std::array<double,3> getCalibMaskPositionInBankFrame(CalibMasks::CalibMasksBase calibMask, const int bankId) const;
   /// A placement in the bank frame: position, and rotation (its columns: the axes of the placed volume).
   struct PlacementInBank {
     std::array<double,3> position;

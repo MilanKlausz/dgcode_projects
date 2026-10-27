@@ -28,12 +28,8 @@ public:
       const double m_elevationFromTubeFront;
       const std::vector<double> m_pattern;
   };
-  static CalibMasksBase getCalibMask(std::string name);
   static G4Material* maskMaterial;
   static G4Material* maskBoxMaterial;
-
-private:
-  const static std::map<std::string, CalibMasks::CalibMasksBase> m_masks;
 };
 
 #endif

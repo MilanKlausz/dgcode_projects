@@ -96,12 +96,12 @@ def run(title, geopars, rear_mm, N, nbanks):
     print(f'All straws (first/middle/last pixel): {chk.nchecks - n0} checks done, failures so far: {chk.nfail}')
 
 run('Nominal geometry: rear 5 m, 256 pixels/straw', dict(), 5000.0, 256, 9)
-run('Rear 10 m, beamstop 3, calibration slits, 512 pixels/straw',
-    dict(rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True), 10000.0, 512, 9)
+run('Rear 10 m, beamstop 3, rear calibration mask, 512 pixels/straw',
+    dict(rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True), 10000.0, 512, 9)
 run('Bank calibration 2026-September-SAM-606: rear 5 m, 256 pixels/straw',
     dict(bank_calibration='2026-September-SAM-606'), 5000.0, 256, 9)
-run('Bank calibration 2026-September-SAM-606: rear 8 m, calibration slits, 64 pixels/straw',
-    dict(bank_calibration='2026-September-SAM-606', rear_detector_distance_m=8.0, with_calibration_slits=True),
+run('Bank calibration 2026-September-SAM-606: rear 8 m, rear calibration mask, 64 pixels/straw',
+    dict(bank_calibration='2026-September-SAM-606', rear_detector_distance_m=8.0, with_rear_calibration_mask=True),
     8000.0, 64, 9)
 
 chk.finish()
