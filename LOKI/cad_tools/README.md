@@ -41,7 +41,7 @@ stay directly in the world).
 |---|---|---|
 | `simple_b4c2021` | the B4C plates added with the updated boron masks of the front carriage (SI-7615-695/-696/-697/-703, -702/-704; as `front_b4c_2021`) | 8 boxes, 3 envelopes |
 | `simple_tufnol` | the Tufnol parts with a relevance >= 1.5 cm3 (Tufnol scatters ~30x more than aluminium per cm): the Pi-shaped frames of banks 1/3 (3 boxes each), the side plates of the rear bank, the pads and plates of the front carriage, the wedges -180; 12.8 l | 18 boxes |
-| `simple_al` | the aluminium of the front carriage, middle and rear frames with a relevance >= 40 cm3 (97% of the total relevance): plates, hollow beams (one homogenised box each) and the beams of the carriage ring; 213 l (the detailed `frames_al`: 228 l) | 137 boxes, 9 envelopes |
+| `simple_al` | the aluminium of the front carriage, middle and rear frames with a relevance >= 40 cm3 (97% of the total relevance): plates, hollow beams (one homogenised box each) and the beams of the carriage ring, without the thin carriage-ring bar SI-7615-178_01/beam18 (8 x 8 mm, 40 cm3 of Al); 213 l (the detailed `frames_al`: 228 l) | 136 boxes, 8 envelopes |
 | `simple_ends` (pack) | the end blocks and end plates beyond both straw ends of every pack (548 cm3 per end, the whole CAD volume) as two homogenised boxes per end (upper / lower half of the pack section, fill 0.50) | 4 per pack |
 
 The C-channel of the packs (`rail`) has no simplified version: it had no significant effect on any setup. All four sets
@@ -62,7 +62,8 @@ of one DMSC quark node per source position; relative to the geometry without CAD
 | the same without envelopes | +7% | +12% | +6% |
 | `simple_tufnol` / `simple_al` / pack `simple_ends` alone | 0% / +4% / +2% | 0% / +5% / +3% | 0% / +1% / +1% |
 
-The geometry itself (navigation through 163 boxes, 12 envelopes and 4 boxes per pack) costs 3-6%; the rest is the
+The geometry itself (navigation through 163 boxes, 12 envelopes and 4 boxes per pack; measured before beam18 was
+excluded, now 162 boxes and 11 envelopes) costs 3-6%; the rest is the
 physics of the added material (more neutron scattering, longer histories: the GRIFF output grows like the CPU time). The
 envelopes change the time by about 1-2% (within the uncertainty): the world has 91 daughters with the simplified sets
 (17 without CAD components). Memory: +20 MB per process (detailed sets: +55 MB). Initialisation: unchanged (~11 s).

@@ -35,7 +35,7 @@
    "selections": [
     {"tag": "678", "step": "${CAD_MODELS}/triangularBoronMasks/SI-7615-678 Front carriage with updated boron masks.stp",
      "align": "align_678.npz", "materials": ["Al"], "min_volume_cm3": 50, "min_relevance_cm3": 40,
-     "exclude": ["SI-7615-102", "SI-7615-701", "SI-8820-130"], "beams": "beams_678.json"},
+     "exclude": ["SI-7615-102", "SI-7615-701", "SI-8820-130", "SI-7615-178_01/beam18"], "beams": "beams_678.json"},
     {"tag": "frames", "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp", "align": "align_frames_mid_v2.npz",
      "region": [9500, 11500, 24000, 25300], "materials": ["Al"], "min_volume_cm3": 50, "min_relevance_cm3": 40},
     {"tag": "frames", "step": "${CAD_MODELS}/Loki detector frames and B4C export.stp", "align": "align_frames_rear_v2.npz",
