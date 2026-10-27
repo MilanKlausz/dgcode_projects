@@ -40,6 +40,8 @@ private:
   G4LogicalVolume * createCalibrationMaskLV(CalibMasks::CalibMasksBase calibMask);
   bool hasCalibrationSlits(int bankId);
   bool hasBoronMasks(int bankId);
+  bool isExcludedBoronMask(int bankId, int maskId);
+  bool isListedBoronMask(const std::string& parameter, int bankId, int maskId);
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
@@ -151,9 +153,33 @@ GeoBCS::GeoBCS()
   addParameterBoolean("with_calibration_slits", false);
   addParameterString("calibration_slit_banks", "");
   addParameterString("calibration_slit_material", "MAT_B4C:b10_enrichment=0.95"); // e.g. G4_Cd
+  // the slit mask of the rear bank: "SI-7615-993" (the manufactured REAR CALIBRATION MASK PLATE, drawing ESS-5767239 /
+  // SI-7615-993: a 2 mm aluminium sheet, its front face painted with Gd2O3 paint except ten 6 mm bare slits, the face
+  // 1742 mm tall and 992 mm wide between its side walls, mounted with its lips on the front of the bank's side plates,
+  // the face 51 mm deeper) or "design" (the older design pattern lokiStandard-0 of calibration_slit_material)
+  addParameterString("rear_calibration_mask", "SI-7615-993");
+  addParameterDouble("calibration_plate_gap_mm", 8.0, 0.0, 50.0);         // back of the 2 mm sheet - front of the tubes
+  addParameterDouble("calibration_paint_thickness_mm", 0.15, 0.0, 5.0);   // the Gd2O3 paint layer (not specified; 0.15 mm fits run 360)
+  // 50% polyurethane varnish (approximated as C25H42N2O6, 1.2 g/cm3) + 50% Gd2O3 (7.41 g/cm3) by weight
+  addParameterString("calibration_paint_material", "solid::Gd10C100H167N8O39/2.07gcm3");
+  addParameterString("calibration_plate_material", "G4_Al");
   // the B4C masks of the banks (the rectangular masks of each bank and the triangular masks of banks 5 and 7; not the
   // beamstop): "all" (the design), "none", or a bank list as above
   addParameterString("boron_mask_banks", "all");
+  // the triangular B4C masks of banks 5 and 7 (part of their design masks; switch them off separately)
+  addParameterBoolean("with_triangular_masks", true);
+  // individual design masks not present: "bank:mask,mask;bank:..." (the mask ids of the volume names BoronMask-<bank>-<mask>)
+  addParameterString("boron_mask_exclude", "");
+  // design masks drawn in colour in the viewers (display only, same format as boron_mask_exclude): red, and orange
+  addParameterString("highlight_boron_masks", "");
+  addParameterString("highlight_boron_masks_2", "");
+  // a cylinder (vertical axis) of the world material marking the source moderator, for the visualisation only (no effect
+  // on the physics, but it must not overlap other volumes in a simulation; radius 0: none)
+  addParameterDouble("show_source_cylinder_radius_cm", 0.0, 0.0, 100.0);
+  addParameterDouble("show_source_cylinder_height_cm", 27.0, 0.1, 200.0);
+  addParameterDouble("show_source_cylinder_x_meters", 0.0, -5.0, 5.0);
+  addParameterDouble("show_source_cylinder_y_meters", 0.0, -5.0, 5.0);
+  addParameterDouble("show_source_cylinder_z_meters", 0.0, -5.0, 15.0);
   // absorber strips on the front faces of banks (e.g. the B4C sheets taped on the banks in source tests):
   // "bank,x1,y1,z1,x2,y2,z2,width,thickness;..." [mm], the strip from the point 1 to the point 2 (world coordinates,
   // projected on the plane just in front of the tubes of the bank), width and thickness of the strip
@@ -183,6 +209,8 @@ GeoBCS::GeoBCS()
   addParameterString("bank_calibration", BankCalibration::defaultName);
 
   addParameterString("world_material","G4_Vacuum");
+  // the gas around the tubes inside the bank and pack volumes (the measurements at atmospheric pressure: G4_AIR)
+  addParameterString("pack_fill_material","G4_Vacuum");
   addParameterString("B4C_panel_material","MAT_B4C:b10_enrichment=0.95"); // the B4C panels behind the tubes
 }
 
@@ -216,7 +244,7 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
   // The PackBoxWidth corresponds to the size of the volume encapsulating the electronics on the sides as well, not just the detectors, but that would cause collision with the calibration slits, so a multiplication factor of 0.799 is applied, to get a volume just large enough to fit in the detectors in the front.
   auto lv_pack_box = new G4LogicalVolume(
     new G4Para("EmptyPackBox", 0.799*0.5*BcsPack::getPackBoxWidth(), 0.5*BcsPack::getPackBoxHeight(), 0.5 * strawLength + BcsPack::getPackBoxIdleLengthOnOneEnd(), packRotation, 0, 0),
-    BcsPack::packBoxFillMaterial, "EmptyPackBox");
+    getParameterMaterial("pack_fill_material"), "EmptyPackBox");
 
   /// Add 8 BCS detector tubes ///
   auto lv_front_tube = createTubeLV(BcsTube::getFrontTubeConverterThickness(), strawLength);
@@ -286,7 +314,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   const auto bankHalfSize = banks->getBankHalfSizeInBankFrame(bankId);
 
   auto lv_bank = new G4LogicalVolume(new G4Box("EmptyPanelBox", bankHalfSize[0], bankHalfSize[1], bankHalfSize[2]),
-                                     BcsPack::packBoxFillMaterial, "Bank");
+                                     getParameterMaterial("pack_fill_material"), "Bank");
 
   // override lv_bank to subtract some empty part of front left and right banks where front top and bottom banks would overlap with them
   // (the notch is computed from the bank placements in use, see BcsBanks::getBankNotch)
@@ -299,7 +327,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     auto bankBoxCut = new G4Box("EmptyPanelBox", notch.halfSize[0], notch.halfSize[1], notch.halfSize[2]);
     auto bankBox = new G4SubtractionSolid("EmptyPanelBox", fullBankBox, bankBoxCut, 0, G4ThreeVector(notch.centre[0], notch.centre[1], notch.centre[2]));
 
-    lv_bank = new G4LogicalVolume(bankBox, BcsPack::packBoxFillMaterial, "Bank");
+    lv_bank = new G4LogicalVolume(bankBox, getParameterMaterial("pack_fill_material"), "Bank");
   }
 
   for (int packNumber = 0; packNumber < numberOfPacks; ++packNumber){
@@ -311,13 +339,17 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
 
   const int numberOfBoronMasks = hasBoronMasks(bankId) ? BoronMasks::getNumberOfBoronMasks(bankId) : 0;
   for (int maskId = 0; maskId < numberOfBoronMasks; ++maskId){
+    if (isExcludedBoronMask(bankId, maskId))
+      continue;
     const std::string maskName = "BoronMask-"+std::to_string(bankId)+"-"+std::to_string(maskId);
     const auto maskSize = BoronMasks::getSizeInBankFrame(bankId, maskId);
     const auto maskPosition = banks->getBoronMaskPositionInBankFrame(bankId, maskId);
+    const G4Colour maskColour = isListedBoronMask("highlight_boron_masks", bankId, maskId) ? G4Colour(1, 0, 0)
+                              : isListedBoronMask("highlight_boron_masks_2", bankId, maskId) ? G4Colour(1, 0.5, 0) : BLACK;
     place(new G4Box(maskName, 0.5*maskSize[0], 0.5*maskSize[1], 0.5*maskSize[2]),
             BoronMasks::maskMaterial,
             maskPosition[0], maskPosition[1], maskPosition[2],
-            lv_bank, BLACK, -2, 0, new G4RotationMatrix(0, 0, BoronMasks::getRotation(bankId, maskId)));
+            lv_bank, maskColour, -2, 0, new G4RotationMatrix(0, 0, BoronMasks::getRotation(bankId, maskId)));
   }
 
   // Add Beamstop to the Rear Bank volume
@@ -346,7 +378,39 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
           lv_bank, BLACK, -5, 0, new G4RotationMatrix());
   }
 
-  if (hasCalibrationSlits(bankId)) {
+  if (hasCalibrationSlits(bankId) && bankId == 0 && getParameterString("rear_calibration_mask") == "SI-7615-993") {
+    // the REAR CALIBRATION MASK PLATE (drawing SI-7615-993), bank frame: x = depth (front at -0.5*depth), y = across the
+    // tubes, z = along the tubes; centred on the bank (as the design mask)
+    const double tubeFront = BcsBanks::getTubeFrontPositionInBankFrame(bankId);
+    const double gap = getParameterDouble("calibration_plate_gap_mm") * Units::mm;
+    const double plateThickness = 2.0 * Units::mm, faceHeight = 1742.0 * Units::mm, faceWidth = 996.0 * Units::mm;
+    const double paintThickness = getParameterDouble("calibration_paint_thickness_mm") * Units::mm;
+    const double plateX = tubeFront - gap - 0.5 * plateThickness;
+    place(new G4Box("CalibPlate-0", 0.5 * plateThickness, 0.5 * faceHeight, 0.5 * faceWidth),
+          getParameterMaterial("calibration_plate_material"), plateX, 0., 0., lv_bank, G4Colour(0.75, 0.75, 0.75), -5, 0,
+          new G4RotationMatrix());
+    if (paintThickness > 0) {
+      // the paint between the side walls (992 mm): 43 mm paint, then (6 mm slit, 94 mm paint) x 9, 6 mm slit, 43 mm paint
+      // (slit centres at +-50, ..., +-450 mm from the centre)
+      std::vector<double> pattern = {43.0};
+      for (int k = 0; k < 9; ++k) { pattern.push_back(6.0); pattern.push_back(94.0); }
+      pattern.push_back(6.0); pattern.push_back(43.0);
+      const double paintX = plateX - 0.5 * plateThickness - 0.5 * paintThickness;
+      auto paintMaterial = getParameterMaterial("calibration_paint_material");
+      double offset = -0.5 * 992.0 * Units::mm;
+      for (size_t i = 0; i < pattern.size(); ++i) {
+        const double w = pattern[i] * Units::mm;
+        if (i % 2 == 0)
+          place(new G4Box("CalibPaint-0-" + std::to_string(i / 2), 0.5 * paintThickness, 0.5 * faceHeight, 0.5 * w),
+                paintMaterial, paintX, 0., offset + 0.5 * w, lv_bank, DARKPURPLE, -5, 0, new G4RotationMatrix());
+        offset += w;
+      }
+    }
+    printf("GeoBCSBanks: rear calibration mask SI-7615-993: 2 mm %s sheet %g mm in front of the tubes, %g mm %s paint, "
+           "slits 6 mm at +-50..+-450 mm\n", getParameterString("calibration_plate_material").c_str(), gap / Units::mm,
+           paintThickness / Units::mm, getParameterString("calibration_paint_material").c_str());
+  }
+  else if (hasCalibrationSlits(bankId)) {
     std::string calibMaskName = "lokiStandard-"+std::to_string(bankId);
     const auto calibMask = CalibMasks::getCalibMask(calibMaskName);
     auto lv_calibrationMask = createCalibrationMaskLV(calibMask);
@@ -354,26 +418,6 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     const auto calibMaskPosition = banks->getCalibMaskPositionInBankFrame(calibMask, bankId);
     place(lv_calibrationMask, calibMaskPosition[0], calibMaskPosition[1], calibMaskPosition[2],
           lv_bank, PURPLE, -5, 0, new G4RotationMatrix());
-  }
-
-  // Absorber strips on the front face of the bank (in the bank frame: x = depth, y = across the tubes, z = along them)
-  for (const auto& strip : parseAbsorberStrips(getParameterString("absorber_strips"))) {
-    if (static_cast<int>(strip[0]) != bankId)
-      continue;
-    const double width = strip[7], thickness = strip[8];
-    const BankTransform transform = banks->getBankTransform(bankId);
-    const auto p1 = transform.toLocal({strip[1], strip[2], strip[3]});
-    const auto p2 = transform.toLocal({strip[4], strip[5], strip[6]});
-    // the depth of a slit mask of this thickness 0.5 mm in front of the tubes
-    const CalibMasks::CalibMasksBase plane("strip", thickness, width, 0.0, 0.5, {width});
-    const double depth = banks->getCalibMaskPositionInBankFrame(plane, bankId)[0];
-    const double dy = p2[1] - p1[1], dz = p2[2] - p1[2];
-    const double length = std::sqrt(dy * dy + dz * dz);
-    // the box: thickness along x, width along y, length along z; its z axis turned to the strip direction (frame rotation)
-    auto rotation = new G4RotationMatrix();
-    rotation->rotateX(std::atan2(dy, dz));
-    place(new G4Box("AbsorberStrip", 0.5 * thickness, 0.5 * width, 0.5 * length), getParameterMaterial("absorber_strip_material"),
-          depth, 0.5 * (p1[1] + p2[1]), 0.5 * (p1[2] + p2[2]), lv_bank, BLACK, -6, 0, rotation);
   }
 
   // Absorber plates lying on the outer tube row (inside the bank volume; bank frame: x = depth, y = across the tubes)
@@ -489,7 +533,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 
   // Add 4 triangular boron masks (added to the World instead of the banks)
   for (int maskId = 0; maskId <= 3; maskId++) {
-    if (!hasBoronMasks(BoronMasks::getBankIdOfTriangularMask(maskId)))
+    if (!getParameterBoolean("with_triangular_masks") || !hasBoronMasks(BoronMasks::getBankIdOfTriangularMask(maskId)))
       continue;
     auto lv_triangularMask = createTriangularMaskLV(maskId);
 
@@ -505,6 +549,29 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     auto rotation = new G4RotationMatrix((toG4Rotation(bank) * rotationInBank).inverse());
 
     place(lv_triangularMask, position[0], position[1], position[2], lvWorld, BLACK, -5, 0, rotation);
+  }
+
+  // Absorber strips in front of the front face of a bank volume (in the world: taped over the structural masks and
+  // everything else inside the bank volume); bank frame: x = depth, y = across the tubes, z = along the tubes
+  for (const auto& strip : parseAbsorberStrips(getParameterString("absorber_strips"))) {
+    const int bankId = static_cast<int>(strip[0]);
+    const double width = strip[7], thickness = strip[8];
+    const BankTransform transform = banks->getBankTransform(bankId);
+    const auto half = banks->getBankHalfSizeInBankFrame(bankId);
+    const auto p1 = transform.toLocal({strip[1], strip[2], strip[3]});
+    const auto p2 = transform.toLocal({strip[4], strip[5], strip[6]});
+    const double dy = p2[1] - p1[1], dz = p2[2] - p1[2];
+    const double length = std::sqrt(dy * dy + dz * dz);
+    const double depth = -half[0] - 0.5 * Units::mm - 0.5 * thickness;  // just in front of the bank volume
+    const auto position = transform.toGlobal({depth, 0.5 * (p1[1] + p2[1]), 0.5 * (p1[2] + p2[2])});
+    // object rotation: the bank rotation, then the box z axis turned in the y-z plane to the strip direction
+    G4RotationMatrix inPlane;
+    inPlane.rotateX(std::atan2(-dy, dz));
+    auto rotation = new G4RotationMatrix((toG4Rotation(transform) * inPlane).inverse());
+    place(new G4Box("AbsorberStrip", 0.5 * thickness, 0.5 * width, 0.5 * length), getParameterMaterial("absorber_strip_material"),
+          position[0], position[1], position[2], lvWorld, BLACK, -6, 0, rotation);
+    printf("GeoBCSBanks: absorber strip on bank %d: %g x %g x %g mm, %.1f mm in front of the tubes (in front of the bank volume)\n",
+           bankId, length, width, thickness, -half[0] + banks->detectorSystemFrontDistanceFromBankFront(bankId) - depth);
   }
 
   // Absorber plates on a side face of a bank, outside the bank volume (in the world): a rectangle in the plane of the
@@ -536,6 +603,16 @@ G4VPhysicalVolume* GeoBCS::Construct(){
            "turned by %.1f deg from the tube direction, centre (%.1f, %.1f, %.1f) mm\n",
            bankId, side > 0 ? "+y" : "-y", side * half[1] - 0.5 * (p1[1] + p2[1]), length, width, thickness,
            std::atan2(dx, dz) * 180 / M_PI, position[0], position[1], position[2]);
+  }
+
+  // The source cylinder for the visualisation (world material)
+  const double sourceRadius = getParameterDouble("show_source_cylinder_radius_cm") * Units::cm;
+  if (sourceRadius > 0) {
+    auto rotation = new G4RotationMatrix();
+    rotation->rotateX(90 * Units::deg);  // the G4Tubs axis (z) -> vertical (y)
+    place(new G4Tubs("SourceCylinder", 0, sourceRadius, 0.5 * getParameterDouble("show_source_cylinder_height_cm") * Units::cm, 0., 2 * M_PI),
+          world_material, getParameterDouble("show_source_cylinder_x_meters") * Units::m, getParameterDouble("show_source_cylinder_y_meters") * Units::m,
+          getParameterDouble("show_source_cylinder_z_meters") * Units::m, lvWorld, G4Colour(1, 1, 1), -9, 0, rotation);
   }
 
   // Optional vacuum tank (outside all banks: checked in validateParameters)
@@ -575,6 +652,28 @@ bool GeoBCS::hasCalibrationSlits(int bankId) {
   return parseBankList(getParameterString("calibration_slit_banks")).count(bankId) > 0;
 }
 
+bool GeoBCS::isExcludedBoronMask(int bankId, int maskId) {
+  return isListedBoronMask("boron_mask_exclude", bankId, maskId);
+}
+
+bool GeoBCS::isListedBoronMask(const std::string& parameter, int bankId, int maskId) {
+  std::stringstream items(getParameterString(parameter));
+  std::string item;
+  while (std::getline(items, item, ';')) {
+    const auto colon = item.find(':');
+    if (colon == std::string::npos)
+      throw std::runtime_error("invalid " + parameter + " item (bank:mask,mask): " + item);
+    if (std::stoi(item.substr(0, colon)) != bankId)
+      continue;
+    std::stringstream masks(item.substr(colon + 1));
+    std::string m;
+    while (std::getline(masks, m, ','))
+      if (std::stoi(m) == maskId)
+        return true;
+  }
+  return false;
+}
+
 bool GeoBCS::hasBoronMasks(int bankId) {
   return parseBankList(getParameterString("boron_mask_banks")).count(bankId) > 0;
 }
@@ -582,6 +681,13 @@ bool GeoBCS::hasBoronMasks(int bankId) {
 bool GeoBCS::validateParameters() {
   // you can apply conditions to control the sanity of the geometry parameters and warn the user of possible mistakes
   // a nice example: Projects/SingleCell/G4GeoSingleCell/libsrc/GeoB10SingleCell.cc
+  {
+    const std::string rearMask = getParameterString("rear_calibration_mask");
+    if (rearMask != "SI-7615-993" && rearMask != "design") {
+      printf("ERROR: rear_calibration_mask must be \"SI-7615-993\" or \"design\" (got \"%s\")\n", rearMask.c_str());
+      return false;
+    }
+  }
   double rear_detector_distance = getParameterDouble("rear_detector_distance_m")*Units::m;
   const std::string bankCalibration = getParameterString("bank_calibration");
   try {

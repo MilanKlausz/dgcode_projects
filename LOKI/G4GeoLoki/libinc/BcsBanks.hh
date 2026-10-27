@@ -47,6 +47,8 @@ public:
   /// The tables of this class follow the drawings: axisIndex 0 = x = the width (along the tubes), 1 = y = the
   /// height (across the tubes), 2 = z = the depth (see the bank frame below).
   static double getBankSize(const int bankId, const int axisIndex); // 0 - x, 1 - y, 2 - z
+  // depth (bank frame x, the front of the bank is at -0.5*bank depth) of the front surface of the frontmost tubes
+  static double getTubeFrontPositionInBankFrame(const int bankId);
   static double getPackPositionInBank(const int bankId, const int packNumber, const int axisIndex);// 0 - x, 1 - y, 2 - z
   static double detectorSystemFrontDistanceFromBankFront(const int bankId);
 

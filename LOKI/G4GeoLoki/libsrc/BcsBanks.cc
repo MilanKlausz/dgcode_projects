@@ -177,6 +177,10 @@ BcsBanks::PlacementInBank BcsBanks::getTriangularBoronMaskPlacementInBankFrame(c
   return placement;
 }
 
+double BcsBanks::getTubeFrontPositionInBankFrame(const int bankId) {
+  return -detectorSystemCentreOffsetInBank(bankId, 2);
+}
+
 double BcsBanks::getBankSize(const int bankId, const int axisIndex) {
   assert(0 <= bankId && bankId <= 8);
   assert(0 <= axisIndex && axisIndex <= 2);

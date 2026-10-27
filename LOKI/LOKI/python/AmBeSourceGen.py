@@ -139,12 +139,14 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         self.addParameterString("angular_distribution", "moderator")
         # direction biasing: a cone of this half angle around the direction to the aim point (0: no biasing)
         self.addParameterDouble("aim_half_angle_deg", 0.0)
+        # the particle: "neutron", or "geantino" for line-of-sight (geometry) studies with the same sampling
+        self.addParameterString("particle", "neutron")
         self.addParameterDouble("aim_x_meters", 0.0)
         self.addParameterDouble("aim_y_meters", 0.0)
         self.addParameterDouble("aim_z_meters", 10.0)
 
     def init_generator(self, gun):
-        gun.set_type("neutron")
+        gun.set_type(self.particle)
         name = self.spectrum_file
         path = name if "/" in name else FindData("LOKI", name)
         low, high, spectra, angular = read_table(path)
