@@ -32,6 +32,8 @@
   OK: the file name matches the header
   ambe_hdpe_d26cm_spectrum.txt: radius 13 cm, height 27 cm; per source neutron through the side 0.298 (thermal 0.073), top 0.048, bottom 0.048
   OK: the file name matches the header
+  ambe_hdpe_d26cm_h26cm_spectrum.txt: radius 13 cm, height 26 cm; per source neutron through the side 0.295 (thermal 0.071), top 0.054, bottom 0.054
+  OK: the file name matches the header
   ambe_hdpe_d30cm_spectrum.txt: radius 15 cm, height 27 cm; per source neutron through the side 0.216 (thermal 0.051), top 0.055, bottom 0.056
   OK: the file name matches the header
   ambe_hdpe_d34cm_spectrum.txt: radius 17 cm, height 27 cm; per source neutron through the side 0.155 (thermal 0.036), top 0.061, bottom 0.061

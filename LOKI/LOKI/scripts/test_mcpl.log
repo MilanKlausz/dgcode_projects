@@ -15,11 +15,10 @@ bcsloki_sans.shist:
   neutron_bankToBankIncident: empty
   neutron_bank_Q_hit: filled
   neutron_bank_theta_hit: filled
-  neutron_counters: counters count_initial_neutrons, count_neutrons_entering_aluminium, count_neutrons_converted, count_neutrons_hit, count_neutrons_entering_b4cpanel, count_neutrons_only_world
+  neutron_counters: counters count_initial_neutrons, count_neutrons_entering_aluminium, count_neutrons_converted, count_neutrons_hit, count_neutrons_entering_b4cpanel
   neutron_ending_counters: counters count_neutrons_abs_tubewall, count_neutrons_abs_strawwall, count_neutrons_abs_converter, count_neutrons_abs_b4cpanel, count_neutrons_abs_alpanel, count_neutrons_abs_boronmask, count_neutrons_abs_gas, count_neutrons_end_world
   neutron_layerHitCounter: filled
   neutron_nonFirstBankIncident: empty
-  neutron_segment_number_World: filled
   neutron_theta_conv: filled
   neutron_theta_hit: filled
   neutron_true_theta: filled

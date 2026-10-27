@@ -8,6 +8,7 @@
 #     the moderator size of the table; the share of each surface; isotropic directions on request.
 
 import glob
+import re
 import os
 import random
 import subprocess
@@ -54,15 +55,26 @@ for lo, hi, fractions in angular['side']:
     check(abs(c.mean() - expected) < 0.01 and c.min() >= 0 and c.max() <= 1, "sampled angular distribution as in the table")
 
 print("2. the tables of LOKI/data (moderator size from the header, yields, thermal fraction)")
-for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LOKI', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_d*cm_spectrum.txt')),
-                   key=lambda p: float(os.path.basename(p)[len('ambe_hdpe_d'):-len('cm_spectrum.txt')])):
+# ambe_hdpe_d<diameter>cm[_h<height>cm]_spectrum.txt (the height only in the names of the tables of other heights)
+TABLE_NAME = re.compile(r'ambe_hdpe_d([0-9.]+)cm(?:_h([0-9.]+)cm)?_spectrum\.txt$')
+
+
+def table_size(path):
+    """(diameter, height or 0 if not in the name) [cm]"""
+    d, h = TABLE_NAME.match(os.path.basename(path)).groups()
+    return float(d), float(h) if h else 0.0
+
+
+for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LOKI', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_d*cm*_spectrum.txt')),
+                   key=lambda p: (table_size(p), os.path.basename(p))):
     a, b, s, _ = gen.read_table(path)
     b = np.array(b)
     radius, height = gen.read_moderator_size(path)
     side, top, bottom = (np.array(s[k]) for k in gen.SURFACES)
     print(f"  {os.path.basename(path)}: radius {radius:g} cm, height {height:g} cm; per source neutron through the side "
           f"{side.sum():.3f} (thermal {side[b <= 0.5].sum():.3f}), top {top.sum():.3f}, bottom {bottom.sum():.3f}")
-    check(f"d{2 * radius:g}cm" in os.path.basename(path), "the file name matches the header")
+    diameter, named_height = table_size(path)
+    check(diameter == 2 * radius and named_height in (0.0, height), "the file name matches the header")
 
 print("3. short simulations with event_gen=ambe")
 centre = np.array([-13.5, 6.5, 167.7])  # [cm]

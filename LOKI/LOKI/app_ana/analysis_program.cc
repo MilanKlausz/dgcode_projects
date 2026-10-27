@@ -53,10 +53,6 @@ int main(int argc, char**argv) {
   primary_neutrons.addFilter(new GriffAnaUtils::TrackFilter_Primary());
   primary_neutrons.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
-  GriffAnaUtils::SegmentIterator segments_World(&dr);
-  segments_World.addFilter(new GriffAnaUtils::SegmentFilter_Volume("World"));
-  segments_World.addFilter(new GriffAnaUtils::TrackFilter_Primary());
-  segments_World.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
   GriffAnaUtils::SegmentIterator segments_TubeWall(&dr);
   segments_TubeWall.addFilter(new GriffAnaUtils::SegmentFilter_Volume("TubeWall"));
@@ -68,9 +64,6 @@ int main(int argc, char**argv) {
   segments_B4CPanel.addFilter(new GriffAnaUtils::TrackFilter_Primary());
   segments_B4CPanel.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
-  GriffAnaUtils::SegmentIterator segments_all(&dr);
-  segments_all.addFilter(new GriffAnaUtils::TrackFilter_Primary());
-  segments_all.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
   SimpleHists::HistCollection hc;
 
@@ -220,8 +213,6 @@ int main(int argc, char**argv) {
        h_neutron_pixel_rear_hit->setXLabel("Pixel ID along straw");
        h_neutron_pixel_rear_hit->setYLabel("Straw ID");
 
-  auto h_neutron_segment_number_World = hc.book1D("Number of World segments per neutron", 50, 0, 50, "neutron_segment_number_World");
-
   auto h_neutron_bankIncidentCounter = hc.book1D("Incident neutron counter for the 9 banks", 9, 0, 9, "neutron_bankIncidentCounter");
        h_neutron_bankIncidentCounter->setXLabel("Bank id");
 
@@ -283,7 +274,6 @@ int main(int argc, char**argv) {
   auto count_neutrons_converted = h_neutron_counters->addCounter("count_neutrons_converted");
   auto count_neutrons_hit = h_neutron_counters->addCounter("count_neutrons_hit");
   auto count_neutrons_entering_B4CPanel = h_neutron_counters->addCounter("count_neutrons_entering_B4CPanel");
-  auto count_neutrons_only_World = h_neutron_counters->addCounter("count_neutrons_only_World");
   //auto count_neutrons_enter_B4CPanel_before_TubeWall = h_neutron_counters->addCounter("count_neutrons_enter_B4CPanel_before_TubeWall");
   //auto count_neutrons_enter_B4CPanel_after_TubeWall = h_neutron_counters->addCounter("count_neutrons_enter_B4CPanel_after_TubeWall");
 
@@ -309,34 +299,7 @@ int main(int argc, char**argv) {
       const double theta_true = Utils::theta(dir_true)/Units::deg;
       h_neutron_theta->fill(theta_true, neutron->weight());
 
-      int seg_count_World = 0;
-      double seg_length_World = 0.0;
       double neutron_weight = 0.0;
-      //int isBackScattered = 0;
-
-      while (auto segment = segments_World.next()) { // loop over all segments of the World
-        ++seg_count_World;
-        seg_length_World += segment->segmentLength();
-        neutron_weight = segment->getTrack()->weight();
-      }
-      if (seg_length_World /*&& isBackScattered == 1*/) {
-        h_neutron_segment_number_World->fill(seg_count_World, neutron_weight);
-      }
-
-
-      bool hasOnlyWorldSegments = true;
-      //bool hasEnteredTubeWall = false;
-
-      while (auto segment = segments_all.next()) { // loop over all segments
-        if(segment->volumeName() != "World") {
-          hasOnlyWorldSegments = false;
-          break;
-        }
-      }
-      if(hasOnlyWorldSegments) {
-        count_neutrons_only_World += 1;
-      }
-
 
       bool firstBankEnter = true;
 

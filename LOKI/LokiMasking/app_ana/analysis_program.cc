@@ -91,7 +91,10 @@ int main(int argc, char **argv) {
       bool converterReached = false;
       for (auto seg = trk_geantino->segmentBegin(); seg != trk_geantino->segmentEnd(); ++seg) {
 
-        if (!geantinoAbsorbed && (seg->volumeName().find("BoronMask-") != std::string::npos || seg->volumeName() == "B4CPanel" || seg->volumeName() == "AlPanel")) {
+        // absorbers: the boron masks, the B4C/Al panels and the Gd paint of the rear calibration mask SI-7615-993 (as the
+        // design slit masks BoronMask-lokiStandard-*)
+        if (!geantinoAbsorbed && (seg->volumeName().find("BoronMask-") != std::string::npos || seg->volumeName() == "B4CPanel"
+                                  || seg->volumeName() == "AlPanel" || seg->volumeName().rfind("CalibPaint-", 0) == 0)) {
           // counted as "in mask" only if the absorber is crossed before any straw is reached
           // (the B4C panel behind the tubes of a bank is crossed by every geantino after its straws)
           if (!converterReached) {

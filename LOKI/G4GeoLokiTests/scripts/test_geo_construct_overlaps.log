@@ -41,7 +41,6 @@ Total placements checked for overlaps: 6686
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
    BoronMask-Beamstop               checked:     1  problems: 0
-   BoronMask-lokiStandard-0         checked:    11  problems: 0
    BoronMask-lokiStandard-1         checked:    11  problems: 0
    BoronMask-lokiStandard-2         checked:     6  problems: 0
    BoronMask-lokiStandard-3         checked:    11  problems: 0
@@ -54,7 +53,19 @@ Total placements checked for overlaps: 6686
    BoronMask-triangular-5-1         checked:     1  problems: 0
    BoronMask-triangular-7-2         checked:     1  problems: 0
    BoronMask-triangular-7-3         checked:     1  problems: 0
-   CalibMaskBox                     checked:     9  problems: 0
+   CalibMaskBox                     checked:     8  problems: 0
+   CalibPaint-0-0                   checked:     1  problems: 0
+   CalibPaint-0-1                   checked:     1  problems: 0
+   CalibPaint-0-10                  checked:     1  problems: 0
+   CalibPaint-0-2                   checked:     1  problems: 0
+   CalibPaint-0-3                   checked:     1  problems: 0
+   CalibPaint-0-4                   checked:     1  problems: 0
+   CalibPaint-0-5                   checked:     1  problems: 0
+   CalibPaint-0-6                   checked:     1  problems: 0
+   CalibPaint-0-7                   checked:     1  problems: 0
+   CalibPaint-0-8                   checked:     1  problems: 0
+   CalibPaint-0-9                   checked:     1  problems: 0
+   CalibPlate-0                     checked:     1  problems: 0
    Converter                        checked:  1568  problems: 0
    CountingGas                      checked:  1568  problems: 0
    EmptyPackBox                     checked:   112  problems: 0
@@ -104,7 +115,6 @@ Total placements checked for overlaps: 6686
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
    BoronMask-Beamstop               checked:     1  problems: 0
-   BoronMask-lokiStandard-0         checked:    11  problems: 0
    BoronMask-lokiStandard-1         checked:    11  problems: 0
    BoronMask-lokiStandard-2         checked:     6  problems: 0
    BoronMask-lokiStandard-3         checked:    11  problems: 0
@@ -117,7 +127,19 @@ Total placements checked for overlaps: 6686
    BoronMask-triangular-5-1         checked:     1  problems: 0
    BoronMask-triangular-7-2         checked:     1  problems: 0
    BoronMask-triangular-7-3         checked:     1  problems: 0
-   CalibMaskBox                     checked:     9  problems: 0
+   CalibMaskBox                     checked:     8  problems: 0
+   CalibPaint-0-0                   checked:     1  problems: 0
+   CalibPaint-0-1                   checked:     1  problems: 0
+   CalibPaint-0-10                  checked:     1  problems: 0
+   CalibPaint-0-2                   checked:     1  problems: 0
+   CalibPaint-0-3                   checked:     1  problems: 0
+   CalibPaint-0-4                   checked:     1  problems: 0
+   CalibPaint-0-5                   checked:     1  problems: 0
+   CalibPaint-0-6                   checked:     1  problems: 0
+   CalibPaint-0-7                   checked:     1  problems: 0
+   CalibPaint-0-8                   checked:     1  problems: 0
+   CalibPaint-0-9                   checked:     1  problems: 0
+   CalibPlate-0                     checked:     1  problems: 0
    Converter                        checked:  1568  problems: 0
    CountingGas                      checked:  1568  problems: 0
    EmptyPackBox                     checked:   112  problems: 0
