@@ -108,6 +108,23 @@ namespace {
     return { v3(loc), v3(ax), v3(org) };
   }
 
+  //The volumes placed in the world or in one of the bank mothers (with_bank_mothers: LV names BankMother-...), i.e.
+  //the banks, envelopes, masks... wherever they are placed.
+  std::vector<G4VPhysicalVolume*> top_volumes()
+  {
+    std::vector<G4VPhysicalVolume*> out;
+    auto world = s_world->GetLogicalVolume();
+    for (size_t i = 0; i < world->GetNoDaughters(); ++i) {
+      auto pv = world->GetDaughter(i);
+      out.push_back(pv);
+      auto lv = pv->GetLogicalVolume();
+      if (std::string(lv->GetName()).rfind("BankMother-", 0) == 0)
+        for (size_t j = 0; j < lv->GetNoDaughters(); ++j)
+          out.push_back(lv->GetDaughter(j));
+    }
+    return out;
+  }
+
   //The volumes placed directly in the world of the geometry built with construct_world:
   //add(physvolname, copynumber, logvolname, frame rotation as 3 rows, translation (x,y,z) [mm]) for each
   //(the frame rotation is what G4PVPlacement stores: the inverse of the object rotation).
@@ -132,11 +149,11 @@ namespace {
   //world daughter. A point counts if it is inside the other volume by more than tolerance
   //(DistanceToOut). add(volume, other volume, number of points, max depth [mm]) for the pairs
   //with any such point (volume = "physvolname:copynumber").
-  void dense_world_overlaps(I npoints, double tolerance, sbldpy::Callback<void(std::string,std::string,I,double)> add)
+  //With bank mothers (with_bank_mothers), the daughters of each bank mother are checked against each other in the
+  //same way.
+  using OverlapAdd = sbldpy::Callback<void(std::string,std::string,I,double)>;
+  void dense_daughter_overlaps(const G4LogicalVolume* lv, I npoints, double tolerance, OverlapAdd& add)
   {
-    if (!s_world)
-      throw std::runtime_error("dense_world_overlaps: call construct_world first");
-    auto lv = s_world->GetLogicalVolume();
     const size_t n = lv->GetNoDaughters();
     std::vector<G4AffineTransform> toWorld(n);
     for (size_t i = 0; i < n; ++i) {
@@ -177,7 +194,21 @@ namespace {
     }
   }
 
-  //Dense containment check of the volumes inside the banks (packs, boron masks, calibration masks...):
+  void dense_world_overlaps(I npoints, double tolerance, OverlapAdd add)
+  {
+    if (!s_world)
+      throw std::runtime_error("dense_world_overlaps: call construct_world first");
+    auto world = s_world->GetLogicalVolume();
+    dense_daughter_overlaps(world, npoints, tolerance, add);
+    for (size_t i = 0; i < world->GetNoDaughters(); ++i) {
+      auto lv = world->GetDaughter(i)->GetLogicalVolume();
+      if (std::string(lv->GetName()).rfind("BankMother-", 0) == 0)
+        dense_daughter_overlaps(lv, npoints, tolerance, add);
+    }
+  }
+
+  //Dense containment check of the volumes inside the banks (packs, boron masks, calibration masks...; the banks placed in
+  //the world or in a bank mother):
   //npoints random surface points of each daughter of every bank must be inside its bank solid (which
   //for the banks 6 and 8 has the notch cut out). add(bank copy number, "daughter:copy", number of points
   //outside by more than tolerance, max distance [mm]) for the daughters with such points.
@@ -188,9 +219,7 @@ namespace {
     if (!s_world)
       throw std::runtime_error("dense_bank_containment: call construct_world first");
     const auto mothers = lines(mothersText);
-    auto world = s_world->GetLogicalVolume();
-    for (size_t i = 0; i < world->GetNoDaughters(); ++i) {
-      auto bankPV = world->GetDaughter(i);
+    for (auto bankPV : top_volumes()) {
       auto bankLV = bankPV->GetLogicalVolume();
       const std::string lvName = bankLV->GetName();
       if (std::none_of(mothers.begin(), mothers.end(), [&](const std::string& m) {
@@ -226,13 +255,11 @@ namespace {
   {
     if (!s_world)
       throw std::runtime_error("bank_daughters_distance_to_box: call construct_world first");
-    auto world = s_world->GetLogicalVolume();
     const G4Box box("box", halfSize[0], halfSize[1], halfSize[2]);
     const G4ThreeVector boxCentre(centre[0], centre[1], centre[2]);
     double minDistance = 1e99;
     std::string closest;
-    for (size_t i = 0; i < world->GetNoDaughters(); ++i) {
-      auto bankPV = world->GetDaughter(i);
+    for (auto bankPV : top_volumes()) {
       auto bankLV = bankPV->GetLogicalVolume();
       if (bankLV->GetName() != "Bank" || bankPV->GetCopyNo() != bankCopyNo)
         continue;

@@ -11,6 +11,7 @@
 #include "G4SubtractionSolid.hh"
 #include "G4AffineTransform.hh"
 #include <algorithm>
+#include <array>
 #include <stdexcept>
 #include <cmath>
 #include <string>
@@ -145,6 +146,43 @@ namespace {
     return G4Colour(0.75, 0.75, 0.75);
   }
 
+  // the distance of the origin from the convex hull of points in a plane (0: inside the hull)
+  double distanceFromConvexHull(std::vector<std::array<double,2>> p) {
+    std::sort(p.begin(), p.end());
+    p.erase(std::unique(p.begin(), p.end()), p.end());
+    if (p.size() == 1)
+      return std::hypot(p[0][0], p[0][1]);
+    auto cross = [](const std::array<double,2>& o, const std::array<double,2>& a, const std::array<double,2>& b) {
+      return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    };
+    std::vector<std::array<double,2>> hull(2 * p.size());   // monotone chain: counter-clockwise
+    size_t k = 0;
+    for (size_t i = 0; i < p.size(); i++) {
+      while (k >= 2 && cross(hull[k - 2], hull[k - 1], p[i]) <= 0)
+        k--;
+      hull[k++] = p[i];
+    }
+    for (size_t i = p.size() - 1, lower = k + 1; i > 0; i--) {
+      while (k >= lower && cross(hull[k - 2], hull[k - 1], p[i - 1]) <= 0)
+        k--;
+      hull[k++] = p[i - 1];
+    }
+    hull.resize(k - 1);
+    bool inside = hull.size() >= 3;
+    double distance = 1e99;
+    const std::array<double,2> origin = {0.0, 0.0};
+    for (size_t i = 0; i < hull.size(); i++) {
+      const auto& a = hull[i];
+      const auto& b = hull[(i + 1) % hull.size()];
+      if (cross(a, b, origin) < 0)
+        inside = false;
+      const double dx = b[0] - a[0], dy = b[1] - a[1], length2 = dx * dx + dy * dy;
+      const double t = length2 > 0 ? std::clamp(-(a[0] * dx + a[1] * dy) / length2, 0.0, 1.0) : 0.0;
+      distance = std::min(distance, std::hypot(a[0] + t * dx, a[1] + t * dy));
+    }
+    return inside ? 0.0 : distance;
+  }
+
   // object rotation of a bank (the columns are the bank-local axes in the world)
   G4RotationMatrix toG4Rotation(const BankTransform& transform) {
     const auto& R = transform.rotation;
@@ -233,6 +271,14 @@ GeoBCS::GeoBCS()
   addParameterString("cad_B4C_material", "MAT_B4C:b10_enrichment=0.95"); // B4C S-DOUGH (82% B4C) parts, as the masks
   addParameterString("cad_Tufnol_material", "G4_BAKELITE");              // Tufnol (phenolic laminate)
   addParameterString("cad_Al_material", "NCrystal:cfg=Al_sg225.ncmat");  // aluminium alloy parts
+
+  // Optional mother volumes of the three bank groups (navigation speed): front (banks 5-8), middle (banks 1-4) and rear
+  // (bank 0). Each is a cylinder (a ring where the content leaves the beam axis free) of the world material around the
+  // beam axis, sized to its content with a 1 mm gap: the banks and everything placed in the world for them (triangular
+  // masks, CAD envelopes and world boxes, absorber strips and plates). The source cylinder goes into the mother that
+  // contains its centre. The copy-number depths below the banks are unchanged.
+  addParameterBoolean("with_bank_mothers", false);
+  addParameterBoolean("show_bank_mothers", false);  // draw the bank mothers (transparent) in the viewers
 }
 
 G4LogicalVolume * GeoBCS::createTubeLV(double converterThickness, double strawLength){
@@ -531,6 +577,18 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   cadEnvelopes = CadComponents::loadEnvelopes(getParameterString("cad_components"));
   cadPackBoxes = CadComponents::loadPack(getParameterString("cad_pack_components"));
 
+  // The volumes of the world are collected first (with the bank they belong to, -1: none) and placed at the end: in the
+  // world, or in the mother volume of their bank group (with_bank_mothers)
+  struct WorldItem {
+    G4LogicalVolume* lv;
+    G4ThreeVector position;           // in the world
+    G4RotationMatrix* rotation;       // the frame rotation (G4PVPlacement)
+    G4Colour colour;
+    int copyNumber;
+    int bankId;
+  };
+  std::vector<WorldItem> worldItems;
+
   // Create and place detector banks
   for (int bankId = 0; bankId < banks->getNumberOfBanks(); bankId++){
     auto lv_bank = createBankLV(bankId);
@@ -540,7 +598,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     // G4PVPlacement takes the frame rotation, i.e. the inverse of the bank rotation
     auto rotation = new G4RotationMatrix(toG4Rotation(transform).inverse());
 
-    place(lv_bank, transform.translation[0], transform.translation[1], transform.translation[2], lvWorld, ORANGE, bankId, 0, rotation);
+    worldItems.push_back({lv_bank, G4ThreeVector(transform.translation[0], transform.translation[1], transform.translation[2]),
+                          rotation, ORANGE, bankId, bankId});
   }
 
   // Add 4 triangular boron masks (added to the World instead of the banks)
@@ -560,7 +619,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
                                           G4ThreeVector(inBank.rotation[0][2], inBank.rotation[1][2], inBank.rotation[2][2]));
     auto rotation = new G4RotationMatrix((toG4Rotation(bank) * rotationInBank).inverse());
 
-    place(lv_triangularMask, position[0], position[1], position[2], lvWorld, BLACK, -5, 0, rotation);
+    worldItems.push_back({lv_triangularMask, G4ThreeVector(position[0], position[1], position[2]), rotation, BLACK, -5, bankId});
   }
 
   // CAD components outside the bank volumes: given in the frame of their bank, placed with the bank transform; in the
@@ -573,8 +632,9 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
                                   G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the envelope axes
     auto rotation = new G4RotationMatrix((toG4Rotation(bank) * inBank).inverse());
-    auto lv = place(new G4Box("CadEnvelope-" + env.name, env.halfSize[0], env.halfSize[1], env.halfSize[2]), world_material,
-                    position[0], position[1], position[2], lvWorld, INVISIBLE, -13, 0, rotation).logvol;
+    const std::string name = "CadEnvelope-" + env.name;
+    auto lv = new G4LogicalVolume(new G4Box(name, env.halfSize[0], env.halfSize[1], env.halfSize[2]), world_material, name);
+    worldItems.push_back({lv, G4ThreeVector(position[0], position[1], position[2]), rotation, INVISIBLE, -13, env.bankId});
     envelopeLVs[env.name] = {lv, &env};
   }
   for (const auto& box : cadBoxes) {
@@ -605,7 +665,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     const G4RotationMatrix inBank(G4ThreeVector(a[0][0], a[0][1], a[0][2]), G4ThreeVector(a[1][0], a[1][1], a[1][2]),
                                   G4ThreeVector(a[2][0], a[2][1], a[2][2]));   // columns: the box axes
     auto rotation = new G4RotationMatrix((toG4Rotation(bank) * inBank).inverse());
-    place(createCadBoxLV(box), position[0], position[1], position[2], lvWorld, cadColour(box.material), -11, 0, rotation);
+    worldItems.push_back({createCadBoxLV(box), G4ThreeVector(position[0], position[1], position[2]), rotation,
+                          cadColour(box.material), -11, box.bankId});
   }
   if (!cadBoxes.empty())
     printf("GeoBCSBanks: %d CAD component boxes, %d envelopes, %d materials (%s)\n", static_cast<int>(cadBoxes.size()),
@@ -628,8 +689,9 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     G4RotationMatrix inPlane;
     inPlane.rotateX(std::atan2(-dy, dz));
     auto rotation = new G4RotationMatrix((toG4Rotation(transform) * inPlane).inverse());
-    place(new G4Box("AbsorberStrip", 0.5 * thickness, 0.5 * width, 0.5 * length), getParameterMaterial("absorber_strip_material"),
-          position[0], position[1], position[2], lvWorld, BLACK, -6, 0, rotation);
+    worldItems.push_back({new G4LogicalVolume(new G4Box("AbsorberStrip", 0.5 * thickness, 0.5 * width, 0.5 * length),
+                                              getParameterMaterial("absorber_strip_material"), "AbsorberStrip"),
+                          G4ThreeVector(position[0], position[1], position[2]), rotation, BLACK, -6, bankId});
     printf("GeoBCSBanks: absorber strip on bank %d: %g x %g x %g mm, %.1f mm in front of the tubes (in front of the bank volume)\n",
            bankId, length, width, thickness, -half[0] + banks->detectorSystemFrontDistanceFromBankFront(bankId) - depth);
   }
@@ -657,8 +719,9 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     G4RotationMatrix inPlane;
     inPlane.rotateY(std::atan2(dx, dz));
     auto rotation = new G4RotationMatrix((toG4Rotation(transform) * inPlane).inverse());
-    place(new G4Box("AbsorberPlate", 0.5 * width, 0.5 * thickness, 0.5 * length),
-          getParameterMaterial("absorber_strip_material"), position[0], position[1], position[2], lvWorld, BLACK, -7, 0, rotation);
+    worldItems.push_back({new G4LogicalVolume(new G4Box("AbsorberPlate", 0.5 * width, 0.5 * thickness, 0.5 * length),
+                                              getParameterMaterial("absorber_strip_material"), "AbsorberPlate"),
+                          G4ThreeVector(position[0], position[1], position[2]), rotation, BLACK, -7, bankId});
     printf("GeoBCSBanks: absorber plate on bank %d (face %s of the bank volume, %.1f mm from the given points): %g x %g x %g mm, "
            "turned by %.1f deg from the tube direction, centre (%.1f, %.1f, %.1f) mm\n",
            bankId, side > 0 ? "+y" : "-y", side * half[1] - 0.5 * (p1[1] + p2[1]), length, width, thickness,
@@ -670,17 +733,102 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   if (sourceRadius > 0) {
     auto rotation = new G4RotationMatrix();
     rotation->rotateX(90 * Units::deg);  // the G4Tubs axis (z) -> vertical (y)
-    place(new G4Tubs("SourceCylinder", 0, sourceRadius, 0.5 * getParameterDouble("show_source_cylinder_height_cm") * Units::cm, 0., 2 * M_PI),
-          world_material, getParameterDouble("show_source_cylinder_x_meters") * Units::m, getParameterDouble("show_source_cylinder_y_meters") * Units::m,
-          getParameterDouble("show_source_cylinder_z_meters") * Units::m, lvWorld, G4Colour(1, 1, 1), -9, 0, rotation);
+    worldItems.push_back({new G4LogicalVolume(new G4Tubs("SourceCylinder", 0, sourceRadius,
+                                                         0.5 * getParameterDouble("show_source_cylinder_height_cm") * Units::cm, 0., 2 * M_PI),
+                                              world_material, "SourceCylinder"),
+                          G4ThreeVector(getParameterDouble("show_source_cylinder_x_meters") * Units::m,
+                                        getParameterDouble("show_source_cylinder_y_meters") * Units::m,
+                                        getParameterDouble("show_source_cylinder_z_meters") * Units::m),
+                          rotation, G4Colour(1, 1, 1), -9, -1});
   }
 
-  // Optional vacuum tank (outside all banks: checked in validateParameters)
   const double tankWall = getParameterDouble("vacuum_tank_wall_mm")*Units::mm;
+  const double rIn = getParameterDouble("vacuum_tank_inner_radius_m")*Units::m;
+  const double zFront = getParameterDouble("vacuum_tank_front_m")*Units::m;
+  const double zRear = getParameterDouble("vacuum_tank_rear_m")*Units::m;
+
+  // The mother volumes of the bank groups (with_bank_mothers): cylinders around the beam axis, from the bounding boxes
+  // of their content in the world (z range, largest radius; the inner radius: the distance of the beam axis from the
+  // content, from the convex hull of the bounding boxes projected along z), with a gap of 1 mm
+  struct BankMother {
+    std::string name;
+    double zMin = 1e99, zMax = -1e99, rMin = 1e99, rMax = 0, zCentre = 0;
+    G4LogicalVolume* lv = nullptr;
+  };
+  std::array<BankMother, 3> mothers;
+  mothers[0].name = "front"; mothers[1].name = "middle"; mothers[2].name = "rear";
+  auto groupOf = [](int bankId) { return bankId < 0 ? -1 : (bankId == 0 ? 2 : (bankId <= 4 ? 1 : 0)); };
+  const bool withMothers = getParameterBoolean("with_bank_mothers");
+  if (withMothers) {
+    for (const auto& item : worldItems) {
+      const int group = groupOf(item.bankId);
+      if (group < 0)
+        continue;
+      auto& m = mothers[group];
+      G4ThreeVector low, high;
+      item.lv->GetSolid()->BoundingLimits(low, high);
+      const G4RotationMatrix objectRotation = item.rotation ? item.rotation->inverse() : G4RotationMatrix();
+      std::vector<std::array<double,2>> xy;
+      for (int corner = 0; corner < 8; corner++) {
+        const G4ThreeVector c = objectRotation * G4ThreeVector(corner & 1 ? high.x() : low.x(), corner & 2 ? high.y() : low.y(),
+                                                               corner & 4 ? high.z() : low.z()) + item.position;
+        m.zMin = std::min(m.zMin, c.z());
+        m.zMax = std::max(m.zMax, c.z());
+        m.rMax = std::max(m.rMax, std::hypot(c.x(), c.y()));
+        xy.push_back({c.x(), c.y()});
+      }
+      m.rMin = std::min(m.rMin, distanceFromConvexHull(xy));
+    }
+    const double gap = 1.0 * Units::mm;
+    for (auto& m : mothers) {
+      m.zMin -= gap;
+      m.zMax += gap;
+      m.rMax += gap;
+      m.rMin = (m.rMin - gap < 10.0 * Units::mm) ? 0.0 : m.rMin - gap;   // a ring only if it leaves a useful opening
+      m.zCentre = 0.5 * (m.zMin + m.zMax);
+    }
+    if (mothers[0].zMax > mothers[1].zMin || mothers[1].zMax > mothers[2].zMin)
+      throw std::runtime_error("GeoBCSBanks: with_bank_mothers: the mother volumes of the bank groups would overlap (front z "
+                               + std::to_string(mothers[0].zMin) + " - " + std::to_string(mothers[0].zMax) + " mm, middle "
+                               + std::to_string(mothers[1].zMin) + " - " + std::to_string(mothers[1].zMax) + " mm, rear "
+                               + std::to_string(mothers[2].zMin) + " - " + std::to_string(mothers[2].zMax) + " mm)");
+    if (tankWall > 0)
+      for (const auto& m : mothers)
+        if (m.rMax > rIn || m.zMin < zFront || m.zMax > zRear)
+          throw std::runtime_error("GeoBCSBanks: with_bank_mothers: the " + m.name + " bank mother (radius "
+                                   + std::to_string(m.rMax) + " mm, z " + std::to_string(m.zMin) + " - " + std::to_string(m.zMax)
+                                   + " mm) does not fit in the vacuum tank");
+    const G4Colour motherColour = getParameterBoolean("show_bank_mothers") ? G4Colour(0.3, 0.6, 1.0, 0.15) : INVISIBLE;
+    for (auto& m : mothers) {
+      const std::string name = "BankMother-" + m.name;
+      m.lv = place(new G4Tubs(name, m.rMin, m.rMax, 0.5 * (m.zMax - m.zMin), 0., 2 * M_PI), world_material, 0, 0, m.zCentre,
+                   lvWorld, motherColour, -14, 0, nullptr).logvol;
+    }
+  }
+  for (const auto& item : worldItems) {
+    G4LogicalVolume* mother = lvWorld;
+    double zShift = 0;
+    if (withMothers) {
+      int group = groupOf(item.bankId);
+      if (group < 0)   // the source cylinder: in the mother that contains its centre (if any)
+        for (int k = 0; k < 3; k++)
+          if (mothers[k].lv->GetSolid()->Inside(item.position - G4ThreeVector(0, 0, mothers[k].zCentre)) != kOutside)
+            group = k;
+      if (group >= 0) {
+        mother = mothers[group].lv;
+        zShift = mothers[group].zCentre;
+      }
+    }
+    place(item.lv, item.position.x(), item.position.y(), item.position.z() - zShift, mother, item.colour, item.copyNumber, 0,
+          item.rotation);
+  }
+  if (withMothers)
+    for (const auto& m : mothers)
+      printf("GeoBCSBanks: bank mother %-6s: z %.1f - %.1f mm, radius %.1f - %.1f mm, %d daughters\n", m.name.c_str(), m.zMin,
+             m.zMax, m.rMin, m.rMax, static_cast<int>(m.lv->GetNoDaughters()));
+
+  // Optional vacuum tank (outside all banks: checked in validateParameters)
   if (tankWall > 0) {
-    const double rIn = getParameterDouble("vacuum_tank_inner_radius_m")*Units::m;
-    const double zFront = getParameterDouble("vacuum_tank_front_m")*Units::m;
-    const double zRear = getParameterDouble("vacuum_tank_rear_m")*Units::m;
     const double rWindow = getParameterDouble("vacuum_tank_window_radius_m")*Units::m;
     const double lining = getParameterDouble("vacuum_tank_front_B4C_mm")*Units::mm;
     auto tankMaterial = getParameterMaterial("vacuum_tank_material");

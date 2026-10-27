@@ -23,6 +23,18 @@ Volumes are named `CadComponent-<material>-<set>:<CAD part>#<solid>.<box>` and `
 (copy numbers -11 and -12: passive), envelopes `CadEnvelope-<set>:<name>` (copy number -13). Pack boxes are siblings of
 the tubes and envelopes are placed in the world, so the copy-number depths used by the analyses are unchanged.
 
+**Bank mothers** (`with_bank_mothers=yes`, default off; `show_bank_mothers=yes` draws them transparent): three cylinders
+of the world material around the beam axis, `BankMother-front` (banks 5-8), `-middle` (banks 1-4) and `-rear` (bank 0),
+copy number -14, which hold the banks and everything placed in the world for them (triangular masks, CAD envelopes and
+world boxes, absorber strips and plates), so that the world keeps only the three mothers (plus the tank and the source
+cylinder; the source cylinder goes into the mother containing its centre). Each is sized to its content with a 1 mm gap
+(z range and outer radius from the bounding boxes of the content; a ring where the content leaves the beam axis free:
+with the simplified sets front 238-1620 mm, middle 143-1129 mm, rear solid). The construction stops with an error if two
+mothers would overlap in z or one does not fit in the vacuum tank. The depths below the banks are unchanged; the volume
+name of a particle between the volumes of a group is `BankMother-...` instead of `World` (as already in an envelope:
+the World-segment diagnostics of `LOKI/app_ana` count only `World`). `dense_check.py ... with_bank_mothers=yes` checks
+them (the daughters of each mother against each other and inside it).
+
 ### The simplified sets (branch cad-simplified, recommended)
 
 Few volumes per CAD part: each selected solid is at most a few boxes per region (inside a bank volume / in the world),
@@ -35,13 +47,14 @@ in which a straight line from a point of the part reaches a detector tube before
 scattered there flies straight into a tube). Parts hidden behind the B4C panels, masks or other banks, and the small
 brackets, score low and are left out. World boxes of a set are grouped into **envelopes** (boxes of the world material)
 where that is possible without touching a bank box or another volume (most frame parts wrap around a bank box, so many
-stay directly in the world).
+stay directly in the world) and without coming closer than 200 mm to the beam axis (`BEAM_FREE`, unless the members
+do), so that the bank mothers can be rings.
 
 | set | content | volumes |
 |---|---|---|
 | `simple_b4c2021` | the B4C plates added with the updated boron masks of the front carriage (SI-7615-695/-696/-697/-703, -702/-704; as `front_b4c_2021`) | 8 boxes, 3 envelopes |
 | `simple_tufnol` | the Tufnol parts with a relevance >= 1.5 cm3 (Tufnol scatters ~30x more than aluminium per cm): the Pi-shaped frames of banks 1/3 (3 boxes each), the side plates of the rear bank, the pads and plates of the front carriage, the wedges -180; 12.8 l | 18 boxes |
-| `simple_al` | the aluminium of the front carriage, middle and rear frames with a relevance >= 40 cm3 (97% of the total relevance): plates, hollow beams (one homogenised box each) and the beams of the carriage ring, without the thin carriage-ring bar SI-7615-178_01/beam18 (8 x 8 mm, 40 cm3 of Al); 213 l (the detailed `frames_al`: 228 l) | 136 boxes, 8 envelopes |
+| `simple_al` | the aluminium of the front carriage, middle and rear frames with a relevance >= 40 cm3 (97% of the total relevance): plates, hollow beams (one homogenised box each) and the beams of the carriage ring, without the thin carriage-ring bar SI-7615-178_01/beam18 (8 x 8 mm, 40 cm3 of Al); 213 l (the detailed `frames_al`: 228 l) | 136 boxes, 7 envelopes |
 | `simple_ends` (pack) | the end blocks and end plates beyond both straw ends of every pack (548 cm3 per end, the whole CAD volume) as two homogenised boxes per end (upper / lower half of the pack section, fill 0.50) | 4 per pack |
 
 The C-channel of the packs (`rail`) has no simplified version: it had no significant effect on any setup. All four sets
@@ -63,7 +76,7 @@ of one DMSC quark node per source position; relative to the geometry without CAD
 | `simple_tufnol` / `simple_al` / pack `simple_ends` alone | 0% / +4% / +2% | 0% / +5% / +3% | 0% / +1% / +1% |
 
 The geometry itself (navigation through 163 boxes, 12 envelopes and 4 boxes per pack; measured before beam18 was
-excluded, now 162 boxes and 11 envelopes) costs 3-6%; the rest is the
+excluded, now 162 boxes and 10 envelopes) costs 3-6%; the rest is the
 physics of the added material (more neutron scattering, longer histories: the GRIFF output grows like the CPU time). The
 envelopes change the time by about 1-2% (within the uncertainty): the world has 91 daughters with the simplified sets
 (17 without CAD components). Memory: +20 MB per process (detailed sets: +55 MB). Initialisation: unchanged (~11 s).

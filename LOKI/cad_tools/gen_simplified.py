@@ -52,6 +52,20 @@ HOLE_COST = 0.15      # cost of a (small) hole cell in a box, relative to the ga
 OPEN_COST = 1.0       # cost of an open cell (outside the section or in a large opening)
 MINPART = 0.02        # rectangles with less than this fraction of the solid's material are not used
 GAP, SHRINK = GC.GAP, GC.SHRINK
+BEAM_FREE = 200.0     # envelopes keep this distance [mm] from the beam axis (unless their members are closer), so that
+                      # the bank mothers (with_bank_mothers) can be rings around the beam
+
+
+def axis_distance(points):
+    """the distance of the beam axis (x = y = 0) from the convex hull of the points projected along z (0: inside)"""
+    from scipy.spatial import ConvexHull
+    xy = np.asarray(points)[:, :2]
+    H = xy[ConvexHull(xy).vertices]                 # counter-clockwise
+    E = np.roll(H, -1, axis=0) - H
+    if np.all(E[:, 0] * -H[:, 1] - E[:, 1] * -H[:, 0] >= 0):
+        return 0.0
+    t = np.clip(-(H * E).sum(1) / (E * E).sum(1), 0, 1)
+    return float(np.min(np.hypot(*(H + t[:, None] * E).T)))
 CORNERS = np.array([[i, j, k] for i in (-1, 1) for j in (-1, 1) for k in (-1, 1)], float)
 
 
@@ -318,8 +332,9 @@ def perpart_kept(r, out, setname):
 
 
 def make_envelopes(scene, report):
-    """group the world boxes of each set and bank into envelope boxes clear of everything else. An envelope is oriented
-    along the bank frame, the world frame or the axes of its largest member (the smallest clear one is taken)."""
+    """group the world boxes of each set and bank into envelope boxes clear of everything else and of the beam axis
+    (BEAM_FREE). An envelope is oriented along the bank frame, the world frame or the axes of its largest member (the
+    smallest clear one is taken)."""
     out = scene.out; envs = []
     for setname, bk in sorted({(o['set'], o['bank']) for o in out if o['mother'] == 'world'}):
         Rb, tb = scene.bank_frame(bk)
@@ -360,6 +375,9 @@ def make_envelopes(scene, report):
                         return f'{e["name"]} ({cal["name"]})'
             if scene.rmax and np.max(np.hypot(*E.corners()[:, :2].T)) > scene.rmax - GAP:
                 return 'radius'
+            near = min(BEAM_FREE, min(axis_distance(o['world'].corners()) for o in group))
+            if axis_distance(E.corners()) < near - GAP:
+                return 'beam axis'
             return ''
 
         def best_envelope(group):
