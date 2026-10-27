@@ -20,7 +20,7 @@ for k, v in pars.items():
     setattr(geo, k, (v.lower() in ('1', 'true', 'yes')) if t is bool else t(v))
 with captured_fd_output():
     TU.construct_world(geo)
-TUBE = ('TubeWall', 'EmptyTube', 'StrawWall', 'Converter', 'CountingGas')
+TUBE = ('TubeWall-SI-7615-061', 'EmptyTube', 'StrawWall', 'Converter', 'CountingGas')
 res = []
 for s in json.load(open(cadfile)):
     nhit = 0; nfree = 0; banks = {}

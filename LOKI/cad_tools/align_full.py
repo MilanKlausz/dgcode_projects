@@ -83,6 +83,6 @@ def main(tag, region, banks, init, out, special):
 if __name__ == '__main__':
     main('frames', (12000, 15000, 30000, 32000), [0], 'align_frames_rear.npz', 'align_frames_rear_v2.npz',
          {'SI-7615-221': 'half'})
-    groups13 = [['BoronMask-1-5', 'BoronMask-1-6', 'BoronMask-1-7'], ['BoronMask-3-5', 'BoronMask-3-6', 'BoronMask-3-7']]
+    groups13 = [['BoronMask-1-SI-7615-490.0', 'BoronMask-1-SI-7615-490.1', 'BoronMask-1-SI-7615-490.2'], ['BoronMask-3-SI-7615-490.0', 'BoronMask-3-SI-7615-490.1', 'BoronMask-3-SI-7615-490.2']]
     main('frames', (9500, 11500, 24000, 25300), [1, 2, 3, 4], 'align_frames_mid13.npz', 'align_frames_mid_v2.npz',
          {'SI-7615-490': groups13})

@@ -18,7 +18,7 @@ with captured_fd_output() as lines:
 bad = [l for l in lines if l.startswith('Checking overlaps') and not l.rstrip().endswith('OK!')]
 rows = []
 for depth, pv, copy, lv, t, R, stype, p, mat in TU.world_tree_solids(-1):
-    if lv in ('TubeWall', 'EmptyTube', 'StrawWall', 'Converter', 'CountingGas'):
+    if lv in ('TubeWall-SI-7615-061', 'EmptyTube', 'StrawWall', 'Converter', 'CountingGas'):
         continue
     rows.append(dict(depth=depth, pv=pv, copy=copy, lv=lv, t=t, R=R, solid=stype, pars=p, mat=mat))
 json.dump(dict(pars=pars, overlaps=bad, volumes=rows), open(out, 'w'))

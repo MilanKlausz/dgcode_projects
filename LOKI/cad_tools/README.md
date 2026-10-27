@@ -59,7 +59,7 @@ do), so that the bank mothers can be rings.
 
 The C-channel of the packs (`rail`) has no simplified version: it had no significant effect on any setup. All four sets
 together, and any subset, are free of overlaps (construction-time check; `dense_check.py simple_b4c2021,simple_tufnol,simple_al
-simple_ends`: nominal and SAM-606 placement, rear bank at 5 m and 10 m, calibration slits, vacuum tank; the setup-B
+simple_ends`: nominal and SAM-606 placement, rear bank at 5 m and 10 m, rear calibration mask plate, vacuum tank; the setup-B
 strips and plates). Generated with `gen_simplified.py configs/cfg_simplified.json` and `gen_pack_simplified.py
 configs/cfg_pack_ends.json cad_pack_simple_ends.txt simple_ends` (see the workflow below).
 
@@ -109,7 +109,7 @@ The excess of the data at the tube ends of the rear bank (setup E, data/sim at t
 
 `tufnol` is generated to be compatible with `front_b4c_2021`, `frames_al` with both (a later set yields to the earlier
 ones where the CAD parts touch). All sets are free of overlaps with the nominal and with the SAM-606 bank placement
-(construction-time check and the dense checks of `dense_check.py`: rear bank at 5 m and 10 m, calibration slits, vacuum
+(construction-time check and the dense checks of `dense_check.py`: rear bank at 5 m and 10 m, rear calibration mask plate, vacuum
 tank; the boxes stay within 1620 mm of the beam axis, inside the default tank radius of 1625 mm).
 
 What is lost (`frames_al`): material where a CAD plate collides with an existing Geant4 volume (a mask passing through

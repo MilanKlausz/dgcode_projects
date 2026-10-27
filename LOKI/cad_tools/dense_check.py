@@ -16,9 +16,9 @@ common = {k: value(v) for k, v in (a.split('=', 1) for a in sys.argv[3:])}
 B_STRIPS = ('1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,528.6,358.2,3306.7,199.2,-225.2,3331.0,38.2,1;'
             '3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1')  # setup B
 for cal in ('nominal-geant4-geometry', '2026-September-SAM-606'):
-    for extra in ({}, {'rear_detector_distance_m': 10.0, 'with_calibration_slits': True},
+    for extra in ({}, {'rear_detector_distance_m': 10.0, 'with_rear_calibration_mask': True},
                   {'vacuum_tank_wall_mm': 10.0, 'rear_detector_distance_m': 9.985615, 'world_material': 'G4_AIR', 'pack_fill_material': 'G4_AIR'},
-                  {'vacuum_tank_wall_mm': 10.0, 'vacuum_tank_rear_m': 5.6, 'with_calibration_slits': True, 'absorber_strips': B_STRIPS}):
+                  {'vacuum_tank_wall_mm': 10.0, 'vacuum_tank_rear_m': 5.6, 'with_rear_calibration_mask': True, 'absorber_strips': B_STRIPS}):
         geo = GEO.create(); geo.bank_calibration = cal; geo.cad_components = sets; geo.cad_pack_components = packsets
         for k, v in {**common, **extra}.items():
             setattr(geo, k, v)
