@@ -1,5 +1,0 @@
-# the built documentation
-build/
-# copies of the doc/ directories of the projects, made by source/conf.py at each build
-source/projects/
-source/_generated/

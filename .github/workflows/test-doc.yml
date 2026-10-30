@@ -1,0 +1,52 @@
+name: build-docs
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      CONDA_SOLVER: libmamba
+
+    steps:
+    - name: Checkout main repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        path: ./src_co
+
+    #we need a few files from .github in the simplebuild-dgcode repo:
+    - name: Checkout simplebuild-dgcode repo
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: mctools/simplebuild-dgcode
+        path: ./src_co_sbdgcode
+        sparse-checkout: |
+          .github
+
+    - name: Setup conda environment
+      uses: ./src_co_sbdgcode/.github/actions/setup
+      with:
+        PYTHON_VERSION: 3.11
+        CACHED_NOARCH_DEF_PY_FILE: ./src_co_sbdgcode/.github/resources/cached_noarch_definitions.py
+        CONDA_ENV_FILE : ./src_co_sbdgcode/.github/resources/conda-setup.yml
+
+    - name: Install dgcode
+      run: conda install --yes simple-build-dgcode
+
+    - name: Update conda env for docs
+      #NB: We do NOT add --prune in the next link, since
+      #conda-setup_extra_for_docs.yml only contains the extra dependencies
+      run: conda env update --name simplebuild_dgcode --file ./src_co_sbdgcode/.github/resources/conda-setup_extra_for_docs.yml
+
+    - name: Build documentation
+      #NB: -W to turn warnings into errors:
+      run: make html SPHINXOPTS="-W"
+      working-directory: ./src_co/doc/
+
+    - name: Check HTML links
+      run: make linkcheck
+      working-directory: ./src_co/doc/

@@ -38,3 +38,6 @@ __pycache__/
 #Miscellaneous:
 .DS_Store
 vgcore.*
+
+#documentation build output:
+/doc/build/
