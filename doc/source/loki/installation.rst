@@ -76,11 +76,20 @@ McStas
 
 The McStas models of the instruments are in separate repositories (see :doc:`mcstas`):
 
--  LoKI: `loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__
+-  LoKI: `LOKI <https://git.esss.dk/dmsc-instrumentmodels/LOKI>`__ (DMSC instrument models), branch ``geant4`` for the
+   MCPL output for Geant4. It needs McStas 3.9.1 or later; the repository has its conda environment:
+
+   .. code:: sh
+
+      git clone -b geant4 https://git.esss.dk/dmsc-instrumentmodels/LOKI.git loki_mcstas
+      conda env create -n loki -f loki_mcstas/conda.yml
+
 -  Larmor (only for the Larmor tests): `larmor-mcstas <https://github.com/ess-loki-sim/larmor-mcstas>`__
 
-Install McStas from `McCode <https://github.com/mccode-dev/McCode>`__ (versions 2.7 and 3.x were used). The model
-repositories have branches for McStas 2.x and 3.x, with and without the components for Geant4 (``git branch -a``):
+The Larmor model and the earlier LoKI model
+(`loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__, no longer developed) have
+branches for McStas 2.x and 3.x (from `McCode <https://github.com/mccode-dev/McCode>`__; versions 2.7 and 3.x were
+used), with and without the components for Geant4 (``git branch -a``):
 
 .. list-table::
    :header-rows: 1

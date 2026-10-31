@@ -111,9 +111,11 @@ saved. Only the monitors differ between the McStas + Geant4 and the flood source
 Monitors of McStas + Geant4 simulations
 ---------------------------------------
 
-The monitor file holds the spectra of the McStas monitors (see :ref:`loki-mcstas-loki-model`) from ``--mcstasDir``. The
-front/middle and the rear bank MCPL files are simulated separately and give two detection files: process them
-separately (the monitors are needed only once).
+The monitor file holds the spectra of the McStas monitors (see :ref:`loki-mcstas-loki-model`) from ``--mcstasDir``:
+``Mon10_PostFOC``, ``PreSampleMonitor``, ``PostSampleMonitor`` and ``beamstopMonitor_<rear distance>m``, the monitors of
+the earlier LoKI model. The current model has no ``PreSampleMonitor`` and ``beamstopMonitor``: use ``--detectorOnly``
+for its detection files. The earlier model wrote separate MCPL files for the front/middle and the rear banks, which give
+two detection files: process them separately (the monitors are needed only once).
 
 Monitors of flood source simulations
 ------------------------------------

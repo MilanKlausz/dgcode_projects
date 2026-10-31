@@ -56,8 +56,8 @@ number of particles comes from ``pymcpltool --stats`` (see :ref:`loki-mcstas-gea
 .. code:: python
 
    baseDir = '/mnt/groupdata/detector/workspaces/<user>/lokiSimulations/'
-   mcplFile = baseDir + '/mcstas/samp18/loki-collen_3p0m-ap1_30mm-ap2_10mm-lmin_3p0A-lmax_11p5A_rear_10p0m.mcpl.gz'
-   outputdir = baseDir + '/geant4/samp18/rear10'
+   mcplFile = baseDir + '/mcstas/water/loki-collen_3.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A-reardet_10.0m.mcpl.gz'
+   outputdir = baseDir + '/geant4/water/rear10'
    rearDetDistance = 10  # [m]
    nJobs, nEventsPerJob, additionalNeutrons = (21126, 100000, 70927)  # total: 2112670927 (from the MCPL file)
    submitJobRange = [1000, 2000]
@@ -79,7 +79,7 @@ number of particles comes from ``pymcpltool --stats`` (see :ref:`loki-mcstas-gea
        print(stdout, stderr)
 
 -  ``skip_events`` is limited to 2³¹: split larger MCPL files first (see :ref:`loki-mcstas-mcpl-file-size`).
--  A LoKI McStas simulation gives three MCPL files: run one submission for each.
+-  Use the ``rear_detector_distance_m`` (and ``beamstop_id``) of the McStas simulation (``reardet``, ``beamstop``).
 -  ``bank_calibration=nominal-geant4-geometry`` for results processed with Mantid (see :doc:`mantid`).
 
 Checking and merging the results

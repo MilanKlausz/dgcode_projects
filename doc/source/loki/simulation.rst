@@ -129,7 +129,7 @@ needs it too):
 
    sb_loki_sim event_gen=mcpl input_file=/path/to/file.mcpl.gz -d
    sb_loki_sim -j10 event_gen=mcpl rear_detector_distance_m=10 bank_calibration=nominal-geant4-geometry \
-       analysis_straw_pixel_number=512 input_file=/path/to/loki-collen_5p0m-ap1_30mm-ap2_10mm-lmin_3p0A-lmax_11p5A_rear_10p0m.mcpl.gz
+       analysis_straw_pixel_number=512 input_file=/path/to/loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A-reardet_10.0m.mcpl.gz
 
 -  ``input_file``: the full path of the MCPL file.
 -  Parameters of ``MCPLGen``: ``skip_events`` (skip the first particles, see :doc:`dmsc`), ``allow_zero_weight``,

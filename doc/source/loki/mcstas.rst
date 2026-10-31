@@ -3,19 +3,22 @@ McStas simulation
 
 .. note::
 
-   The McStas models are not part of dgcode_projects: `loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__
-   (LoKI) and `larmor-mcstas <https://github.com/ess-loki-sim/larmor-mcstas>`__ (Larmor). This page is from the earlier
-   LOKI simulation guide and has not been checked against the current versions of these repositories.
+   The McStas models are not part of dgcode_projects: the LoKI model is ``instr/LOKI_main.instr`` of the
+   `LOKI <https://git.esss.dk/dmsc-instrumentmodels/LOKI>`__ repository of the DMSC instrument models, with the MCPL
+   output for Geant4 on its ``geant4`` branch; the Larmor model is
+   `larmor-mcstas <https://github.com/ess-loki-sim/larmor-mcstas>`__. The Larmor part of this page is from the earlier
+   LOKI simulation guide and has not been checked against the current version of that repository.
 
-The McStas simulation transports the neutrons from the moderator to the sample and saves the scattered neutrons in
-MCPL files, the source of the Geant4 simulation (``sb_loki_sim event_gen=mcpl``, see
-:ref:`loki-simulation-mcpl-based-simulation`). The McStas monitors give the incident spectra for the Mantid processing.
+The McStas simulation transports the neutrons from the moderator to the sample and saves the scattered neutrons in an
+MCPL file, the source of the Geant4 simulation (``sb_loki_sim event_gen=mcpl``, see
+:ref:`loki-simulation-mcpl-based-simulation`).
 
 Particle weights
 ----------------
 
 McStas uses particle weights; the Geant4 simulation and the data reduction need whole neutrons (weight 1). The
-``MCPL_output_deweight`` component converts the weights when writing the MCPL file:
+MCPL output component (``MCPL_output_noacc_deweight`` in the LoKI model, ``MCPL_output_deweight`` in the Larmor model)
+converts the weights when writing the MCPL file (``deweight=1``):
 
 -  **Splitting**: while the weight p ≥ 1, a neutron of weight 1 is written and p is reduced by 1.
 -  **Russian roulette**: for 0 < p < 1, a neutron of weight 1 is written with probability p (``if (p > rand) p = 1;   else p = 0;``).
@@ -36,7 +39,7 @@ MCPL file size
 Keep the number of particles in an MCPL file below 2³¹ (≈ 2.15·10⁹; the ``skip_events`` limit of the Geant4
 submission, see :doc:`dmsc`); that is already 78 GB compressed. To keep only useful neutrons:
 
--  A slit after the sample (``focusAroundDetector``) passes only neutrons that can reach the detectors. Check its size
+-  A slit after the sample (``mcpl_slit`` in the LoKI model) passes only neutrons that can reach the detectors. Check its size
    with the Geant4 visualisation of the MCPL file (a few thousand particles, ``--data primary_only=True``), and compare
    the detection counts of a full simulation with a larger slit.
 -  The beamstop removes the transmitted beam (earlier versions also stopped the unscattered neutrons in McStas).
@@ -60,7 +63,7 @@ number of particles of a file is needed for the Geant4 submission:
 
    pymcpltool --stats larmor_postsample.mcpl.gz > stats.txt &   # slow for ~1e9 particles
 
-``MCPL_output_deweight`` also stores the McStas command line and the instrument file in the MCPL file:
+The MCPL output component also stores the McStas command line and the instrument file in the MCPL file:
 
 .. code:: sh
 
@@ -77,52 +80,60 @@ visualisation).
 LoKI model
 ----------
 
-``loki_master_model.instr``, main parameters:
+``instr/LOKI_main.instr`` of the `LOKI <https://git.esss.dk/dmsc-instrumentmodels/LOKI>`__ repository, branch
+``geant4`` (McStas 3.9.1 or later; the repository has the conda environment, ``conda.yml``). The parameters of the
+instrument are described in its README; those for the Geant4 simulation:
 
 .. list-table::
    :header-rows: 1
 
    * - Parameter
      - Meaning
+   * - ``mcplout``
+     - 1: write the MCPL file for Geant4 (default 0).
    * - ``acc_power``
      - Accelerator power in MW (default 5), the intensity of the ``ESS_butterfly`` source.
    * - ``deweight``
-     - Apply the deweighting.
+     - Apply the deweighting (default 1).
+   * - ``beamstop``
+     - Beamstop in front of the rear bank: 0 = 70 mm × 70 mm (default), 1-5 = the beamstops of ESS-1178830 (the
+       ``beamstop_id`` of the Geant4 geometry, see :ref:`loki-geometry-beamstops`).
    * - ``sampletype``
-     - The sample: negative = empty beam (no sample, no beamstop), 0 = flat scatterer (``Isotropic_Sqw``), 10 = logarithmically spaced sharp peaks in Q (``SANS_benchmark2_RKH``), 18 = Gaussian coil, 20 = monodisperse hard spheres, R = 50 (``Sans_spheres``).
-   * - ``collen``
-     - Collimation length: 3, 5 or 8 m.
-   * - ``bs5``, ``bs10``
-     - Beamstop (1-5, see :ref:`loki-geometry-beamstops`) for the rear bank at 5 and 10 m.
+     - The sample: negative = empty beam (no sample), 0 = water, 1-18 = the models of ``SANS_benchmark2`` (e.g. 10 =
+       logarithmically spaced sharp peaks in Q; 5, 6, 15 = spheres), 19 = flat scatterer towards all detector banks.
+   * - ``collen``, ``reardet``
+     - Collimation length (3, 5 or 8 m) and rear bank distance from the sample [m].
 
-**MCPL output.** One simulation writes three files with the components ``mcpl_out_frontMidBanks``,
-``mcpl_out_frontRearBank_5m`` and ``mcpl_out_frontRearBank_10m`` (0.2 m after the sample): the neutrons towards the
-front and middle banks (independent of the rear bank distance), and those reaching the rear bank at 5 m and at 10 m
-past their beamstops. An empty beam simulation writes one file.
+**MCPL output.** ``mcpl_out`` writes one file, 0.2 m after the sample: the neutrons that pass the beamstop and the slit
+``mcpl_slit`` (towards the detector banks). Its name is made of the instrument settings, e.g.
+``loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A-reardet_10.0m.mcpl.gz``. Simulate it with the same rear bank
+distance (``rear_detector_distance_m``) and beamstop (``beamstop_id``). The SPLIT before the sample is fixed (10), so
+the weights are lowered with more neutrons (``-n``) or a lower ``acc_power``; with ``deweight=1`` the file has the
+neutrons of one second of beam at ``acc_power``.
 
-**Monitors** (loaded by the Mantid processing):
+**From McStas to Geant4** (the parameter values are examples):
 
-.. list-table::
-   :header-rows: 1
+.. code:: sh
 
-   * - Monitor
-     - Position (default)
-     - File
-   * - ``Mon10_PostFOC``
-     - after the frame overlap chopper (15.4905 m)
-     - ``Mon10_PostFOC_*.t``
-   * - ``PreSampleMonitor``
-     - before the sample (23.5921 m)
-     - ``PreSampleMonitor_*.t``
-   * - ``PostSampleMonitor``
-     - after the sample (23.8322 m)
-     - ``PostSampleMonitor_*.t``
-   * - ``beamstopMonitor_5m``, ``beamstopMonitor_10m``
-     - at the beamstops
-     - ``beamstopMonitor_5m_*.t``, ``beamstopMonitor_10m_*.t``
+   # 1. McStas: writes the MCPL file (and the monitor files) to DIR
+   mcrun -y LOKI_main.instr -d DIR -n1e9 collen=5 reardet=10 beamstop=5 mcplout=1 acc_power=0.5
+   # 2. Geant4: simulation and analysis of the MCPL file
+   sb_loki_simanachain g4 event_gen=mcpl input_file=DIR/<name>.mcpl.gz rear_detector_distance_m=10 beamstop_id=5 \
+       analysis_straw_pixel_number=512 -j10
 
-**Parameters and resulting numbers** on the DMSC cluster (apertures ``sourceapx=0.030 sourceapy=0.025 sampleapx=0.010 sampleapy=0.015``; front/middle banks and rear bank files). Local runs with 1/100 of the neutrons and of the power give
-1/100 of these numbers.
+For a quick test of the chain use ``-n1e7 acc_power=5e-3`` (about 2·10⁴ neutrons in the MCPL file). For large files
+see :doc:`dmsc`.
+
+**Mantid.** The Mantid processing (see :doc:`mantid`) was written for the earlier LoKI model
+(`loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__, Bitbucket), which wrote three
+MCPL files (front and middle banks, rear bank at 5 m and at 10 m) and had the monitors ``PreSampleMonitor`` and
+``beamstopMonitor_5m``/``beamstopMonitor_10m``. These two monitors are not in the current model: process its detection
+files with ``--detectorOnly``.
+
+**Numbers of the earlier model** on the DMSC cluster (apertures ``sourceapx=0.030 sourceapy=0.025 sampleapx=0.010
+sampleapy=0.015``; front/middle banks and rear bank files; the flat scatterer was ``sampletype=0``, the Gaussian coil
+``sampletype=18`` is not in the current model, and the SPLIT was a parameter). Local runs with 1/100 of the neutrons
+and of the power give 1/100 of these numbers.
 
 .. list-table::
    :header-rows: 1
@@ -256,25 +267,6 @@ past their beamstops. An empty beam simulation writes one file.
      - 2.70e8 / 1.93-1.98e9
      - 1.16e8 / 1.1e9
 
-**From McStas to Mantid** (outline; the parameter values are examples, see the table above):
-
-.. code:: sh
-
-   # 1. McStas: writes the monitor files and the three MCPL files to DIR
-   mcrun loki_master_model.instr -d DIR -n1e9 collen=5 sampletype=0 deweight=1 bs5=3 bs10=5 acc_power=0.5
-   # 2. Geant4, for the rear bank at 5 m: the front/middle file and the rear 5 m file, each simulated and analysed
-   sb_loki_simanachain g4_frontmid event_gen=mcpl input_file=DIR/<name>_frontmid.mcpl.gz rear_detector_distance_m=5 \
-       bank_calibration=nominal-geant4-geometry analysis_straw_pixel_number=512 -j10
-   sb_loki_simanachain g4_rear5 event_gen=mcpl input_file=DIR/<name>_rear_5p0m.mcpl.gz rear_detector_distance_m=5 \
-       bank_calibration=nominal-geant4-geometry analysis_straw_pixel_number=512 -j10
-   # 3. Mantid: one NeXus file pair per detection file; the McStas monitors (from DIR) are needed only once
-   sb_lokimantid_loki g4_frontmid/runana/detectionEvents.mcpl -s frontmid --mcstasDir DIR
-   sb_lokimantid_loki g4_rear5/runana/detectionEvents.mcpl -s rear5 --detectorOnly
-
-The MCPL files are named after the instrument settings, ending in ``_frontmid``, ``_rear_5p0m`` and ``_rear_10p0m``
-(e.g. ``loki-collen_5p0m-ap1_30mm-ap2_10mm-lmin_3p0A-lmax_11p5A_rear_10p0m.mcpl.gz``). For large files see
-:doc:`dmsc`.
-
 .. _loki-mcstas-larmor-model:
 
 Larmor model
@@ -288,7 +280,9 @@ Larmor model
    * - Parameter
      - Meaning
    * - ``sampletype``
-     - As for LoKI (negative, 0, 10, 18, 20). Samples: 10 × 10 × 1 mm (the empty sample slit 50 × 50 mm).
+     - Negative = empty beam, 0 = flat scatterer, 10 = logarithmically spaced sharp peaks in Q, 18 = Gaussian coil,
+       20 = monodisperse hard spheres, R = 50 Å (the numbering of the earlier LoKI model). Samples: 10 × 10 × 1 mm
+       (the empty sample slit 50 × 50 mm).
    * - ``deweight``
      - Apply the deweighting.
    * - ``current``
