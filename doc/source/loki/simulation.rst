@@ -12,7 +12,7 @@ source (uniform scattering from the sample) aimed at bank 3, its analysis, and a
 .. code:: sh
 
    mkdir firstrun && cd firstrun
-   sb_loki_sim event_gen=flood aiming_bank_id=3 bank_calibration=nominal-geant4-geometry -n2000 -j4 > sim.log 2>&1
+   sb_loki_sim event_gen=flood aiming_bank_id=3 -n2000 -j4 > sim.log 2>&1
    sb_loki_ana *.griff > ana.log 2>&1
    python3 -m LOKI.OutputSummary          # numbers of detections and histogram summaries
 
@@ -27,8 +27,7 @@ source (uniform scattering from the sample) aimed at bank 3, its analysis, and a
      - ``detectionEvents.mcpl`` (the detection events) and ``bcsloki_sans.shist`` (histograms), see :doc:`analysis`.
 
 The simulation log is long (an overlap check line per volume): keep it in a file and look for ``NOTE``, ``WARNING`` and
-``ERROR`` lines. ``bank_calibration=nominal-geant4-geometry`` makes the result processable with Mantid (see
-:doc:`mantid`); without it the surveyed bank positions are used (see :ref:`loki-geometry-bank-calibrations`).
+``ERROR`` lines. The surveyed bank positions are used by default (see :ref:`loki-geometry-bank-calibrations`).
 :ref:`loki-analysis-inspecting-the-results` shows how to read the detection events.
 
 Running a simulation
@@ -84,8 +83,7 @@ its output the launcher parameters come after the generator parameters, followed
      - Check the geometry for overlaps and exit.
 
 The output goes to the current directory. The pixels are not part of the simulation: ``analysis_straw_pixel_number``
-(default 256) is stored in the GRIFF file and used by the analysis. Mantid processing needs 256 or 512 (its instrument
-definition files).
+(default 256) is stored in the GRIFF file and used by the analysis; the instrument's NeXus geometry has 512.
 
 Neutron generators
 ------------------
@@ -128,8 +126,8 @@ needs it too):
 .. code:: sh
 
    sb_loki_sim event_gen=mcpl input_file=/path/to/file.mcpl.gz -d
-   sb_loki_sim -j10 event_gen=mcpl rear_detector_distance_m=10 bank_calibration=nominal-geant4-geometry \
-       analysis_straw_pixel_number=512 input_file=/path/to/loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A-reardet_10.0m.mcpl.gz
+   sb_loki_sim -j10 event_gen=mcpl rear_detector_distance_m=10 \
+       analysis_straw_pixel_number=512 input_file=/path/to/loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A_rear.mcpl.gz
 
 -  ``input_file``: the full path of the MCPL file.
 -  Parameters of ``MCPLGen``: ``skip_events`` (skip the first particles, see :doc:`dmsc`), ``allow_zero_weight``,
@@ -137,16 +135,20 @@ needs it too):
 -  The particles are placed relative to the sample position: the distance of the MCPL output component from the sample
    in the McStas model is read from the file (``sample_mcpl_distance_m``); files without it use 0.2 m (the LoKI McStas
    model).
--  All metadata of the MCPL file (e.g. the McStas command line) is copied to the GRIFF file and to the detection file.
+-  All metadata of the MCPL file (e.g. the McStas command line, with the parameter values of the run) is copied to the
+   GRIFF file and to the detection file, and also ``mcpl_universal_weight``, the comments (``mcpl_comments``) and the
+   statistics sums (``mcpl_stat_sum_<name>``, e.g. ``mcpl_stat_sum_initial_ray_count`` of McStas).
+-  The particle weights of the file are used (particles of weight 0 are allowed), and the detection events keep them
+   (for a file without a universal weight, e.g. of the LoKI McStas model): the sum of the McStas weights divided by
+   ``initial_ray_count`` is the intensity in neutrons/s.
 -  ``gen_x_offset_meters`` shifts the beam horizontally.
 -  ``nominal_source_sample_distance_meters`` (default 23.6 m) is used only for approximate histograms in the analysis.
 
-**The three MCPL files of a LoKI McStas simulation** (see :ref:`loki-mcstas-loki-model`): one for the front and middle
-banks (independent of the rear bank distance), one for the rear bank at 5 m and one for the rear bank at 10 m.
-Simulate and analyse each separately (the rear bank files with the matching ``rear_detector_distance_m``). One
-configuration, e.g. the rear bank at 5 m, then has two detection files: the front/middle one and the rear 5 m one.
-Both are processed with Mantid (two ``sb_lokimantid_loki`` runs; the McStas monitors are needed only once, see
-:doc:`mantid`); the same front/middle file serves both rear bank distances.
+**The two MCPL files of a LoKI McStas simulation** (see :ref:`loki-mcstas-loki-model`): one for the front and middle
+banks (independent of the rear bank distance) and one for the rear bank (at the McStas ``reardet``). Together they
+hold all neutrons towards the detectors; each can come from a simulation with its own statistics. Simulate and analyse
+each with the ``rear_detector_distance_m`` and ``beamstop_id`` of the configuration: its result is the sum of the two
+detection files, each normalised with its own ``initial_ray_count``.
 
 .. _loki-simulation-flood-source-simulation:
 
@@ -174,7 +176,7 @@ its wavelength and the source to sample distance (a single, instantaneous pulse)
      - Reference direction of the cone (set by ``aiming_bank_id``).
    * - ``source_monitor_distance_meters``
      - 23.599
-     - Position of the calculated pre-sample monitor (Mantid processing).
+     - Position of a calculated pre-sample monitor (stored in the output).
    * - ``gen_x_offset_meters``, ``gen_y_offset_meters``, ``gen_z_offset_meters``
      - 0
      - Source position offset.
@@ -186,8 +188,7 @@ its wavelength and the source to sample distance (a single, instantaneous pulse)
      - The particle (``geantino=1`` of the launcher sets it).
 
 The launcher parameter ``nominal_source_sample_distance_meters`` (default 23.6 m) sets the source to sample distance
-(time of flight). The generator parameters are stored in the output, so that the Mantid processing can calculate
-the pre-sample monitor spectrum (see :doc:`mantid`).
+(time of flight). The generator parameters are stored in the output (e.g. to calculate the incident spectrum).
 
 **``aiming_bank_id``** limits the directions to a bank or a group of banks (more efficient):
 
@@ -216,7 +217,7 @@ minimum or maximum angle, to check the cone visually:
    sb_loki_sim event_gen=flood -d
    sb_loki_sim event_gen=flood primary_only=True --data -n1000 aiming_bank_id=1234 cone_view=min
    sb_loki_sim event_gen=flood --data -n1000 aiming_bank_id=3 cone_view=max geantino=1
-   sb_loki_sim event_gen=flood aiming_bank_id=3 bank_calibration=nominal-geant4-geometry -n10000 -j10   # simulation
+   sb_loki_sim event_gen=flood aiming_bank_id=3 -n10000 -j10   # simulation
 
 .. _loki-simulation-masking-simulation:
 
@@ -273,9 +274,9 @@ placement:
    * - measured data
      - 512, as the instrument's NeXus geometry (``loki.json``)
      - the surveyed calibration (the default, ``2026-September-SAM-606``)
-   * - simulated data processed with LokiMantid
+   * - simulated data
      - the value of the simulation
-     - ``nominal-geant4-geometry``, as the simulation
+     - the calibration of the simulation
 
 Use at least as many aiming pixels as analysis pixels (e.g. ``aiming_straw_pixel_number=1024``).
 

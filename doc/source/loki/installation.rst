@@ -110,42 +110,6 @@ used), with and without the components for Geant4 (``git branch -a``):
      - 3.x
      - yes
 
-.. _loki-installation-mantid:
-
-Mantid
-------
-
-The :sbpkg:`LokiMantid` package converts the detection events to NeXus files with Mantid (see :doc:`mantid`). It is
-built by ``sb`` only if the command ``mantidpython`` is available. Install Mantid from
-`mantidproject.org <https://www.mantidproject.org/installation/index>`__ (version 5.0 or newer), then make ``mantidpython``
-available:
-
--  **Older Mantid versions** (e.g. 5.1) ship an IPython executable named ``mantidpython``. Find it and add its
-   directory to ``PATH``:
-
-   .. code:: sh
-
-      find /Applications/Mantid* -name "mantidpython"
-      export PATH="/Applications/MantidWorkbench.app/Contents/MacOS/:$PATH"
-
--  **Newer Mantid versions** (e.g. 6.7) have no ``mantidpython``: link the Python interpreter of Mantid under that
-   name, and add the Mantid and dgcode_projects Python directories to ``PYTHONPATH``:
-
-   .. code:: sh
-
-      mkdir -p $HOME/mantidpythonsymlink
-      ln -sf /Applications/MantidWorkbench.app/Contents/Resources/bin/python $HOME/mantidpythonsymlink/mantidpython
-      export PATH="$HOME/mantidpythonsymlink:$PATH"
-      export PYTHONPATH="$PYTHONPATH:/Applications/MantidWorkbench.app/Contents/Resources/bin:<path to dgcode_projects>/simplebuild_cache/install/python"
-
-Put the commands in ``~/.bashrc`` (or ``~/.bash_profile``) to have them in every terminal, and run ``sb`` again to build
-LokiMantid.
-
-The conversion is also available as a Mantid algorithm, ``LoadLokiDetectionEvents``: in Mantid, add the
-``dgcode_projects/simplebuild_cache/install/python/`` directory to the Python script directories (File → Manage User Directories →
-Python Script Directories; without it: ``ModuleNotFoundError: No module named 'LokiMantid'``), then open and run
-``dgcode_projects/LOKI/LokiMantid/python/lokiAlgorithm.py`` to register the algorithm.
-
 .. _loki-installation-dmsc-cluster:
 
 DMSC cluster
@@ -192,25 +156,3 @@ and connect with ``ssh quarkcompile``.
 then clone dgcode_projects and build it as above (``conda activate dgcode``, ``sb``). The environment also works on the
 compile node. If both the compile and the quarkcompile nodes are used, keep one clone of dgcode_projects for each
 (different operating systems). If git does not work on these nodes, run the git commands on the login node.
-
-**Mantid**: available only on the quark nodes, as a module. Run ``conda init`` after loading the miniconda module (as
-above), then in each session load Mantid first and activate the environment after it (the Mantid module changes
-``PATH``, and would hide the CMake of the environment otherwise):
-
-.. code:: sh
-
-   module load mantid/6.1.2
-   conda activate dgcode
-   cd dgcode_projects
-   sb                  # builds LokiMantid as well
-
-A function in ``~/.bashrc`` can do this on both node types:
-
-.. code:: sh
-
-   setup_dgcode() {
-       if module avail 2>&1 | grep -q "mantid/6.1.2"; then  # quark node
-           module load mantid/6.1.2
-       fi
-       conda activate dgcode
-   }

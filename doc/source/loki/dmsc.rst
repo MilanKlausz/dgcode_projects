@@ -29,8 +29,7 @@ Flood source
    submitJobRange = [0, 500]  # submit only these jobs now (do not flood the cluster)
 
    queue = 'newlong'
-   cmdbase = ['sb_loki_simanachain', 'results', 'event_gen=flood', 'aiming_bank_id=3',
-              'bank_calibration=nominal-geant4-geometry']  # for Mantid processing
+   cmdbase = ['sb_loki_simanachain', 'results', 'event_gen=flood', 'aiming_bank_id=3']
 
    for i in range(nJobs):
        if i < submitJobRange[0] or i >= submitJobRange[1]:
@@ -56,15 +55,14 @@ number of particles comes from ``pymcpltool --stats`` (see :ref:`loki-mcstas-gea
 .. code:: python
 
    baseDir = '/mnt/groupdata/detector/workspaces/<user>/lokiSimulations/'
-   mcplFile = baseDir + '/mcstas/water/loki-collen_3.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A-reardet_10.0m.mcpl.gz'
+   mcplFile = baseDir + '/mcstas/water/loki-collen_3.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A_rear.mcpl.gz'
    outputdir = baseDir + '/geant4/water/rear10'
    rearDetDistance = 10  # [m]
    nJobs, nEventsPerJob, additionalNeutrons = (21126, 100000, 70927)  # total: 2112670927 (from the MCPL file)
    submitJobRange = [1000, 2000]
 
    queue = 'newlong'
-   cmdbase = ['sb_loki_simanachain', 'results', 'event_gen=mcpl', 'allow_zero_weight=y',
-              'analysis_straw_pixel_number=512', 'bank_calibration=nominal-geant4-geometry',
+   cmdbase = ['sb_loki_simanachain', 'results', 'event_gen=mcpl', 'analysis_straw_pixel_number=512',
               f'rear_detector_distance_m={rearDetDistance}', f'input_file={mcplFile}', '--cleanup']
 
    for i in range(nJobs):
@@ -80,7 +78,6 @@ number of particles comes from ``pymcpltool --stats`` (see :ref:`loki-mcstas-gea
 
 -  ``skip_events`` is limited to 2³¹: split larger MCPL files first (see :ref:`loki-mcstas-mcpl-file-size`).
 -  Use the ``rear_detector_distance_m`` (and ``beamstop_id``) of the McStas simulation (``reardet``, ``beamstop``).
--  ``bank_calibration=nominal-geant4-geometry`` for results processed with Mantid (see :doc:`mantid`).
 
 Checking and merging the results
 --------------------------------

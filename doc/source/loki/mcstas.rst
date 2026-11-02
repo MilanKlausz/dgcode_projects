@@ -9,16 +9,18 @@ McStas simulation
    `larmor-mcstas <https://github.com/ess-loki-sim/larmor-mcstas>`__. The Larmor part of this page is from the earlier
    LOKI simulation guide and has not been checked against the current version of that repository.
 
-The McStas simulation transports the neutrons from the moderator to the sample and saves the scattered neutrons in an
-MCPL file, the source of the Geant4 simulation (``sb_loki_sim event_gen=mcpl``, see
+The McStas simulation transports the neutrons from the moderator to the sample and saves the scattered neutrons in
+MCPL files, the source of the Geant4 simulation (``sb_loki_sim event_gen=mcpl``, see
 :ref:`loki-simulation-mcpl-based-simulation`).
 
 Particle weights
 ----------------
 
-McStas uses particle weights; the Geant4 simulation and the data reduction need whole neutrons (weight 1). The
-MCPL output component (``MCPL_output_noacc_deweight`` in the LoKI model, ``MCPL_output_deweight`` in the Larmor model)
-converts the weights when writing the MCPL file (``deweight=1``):
+McStas uses particle weights. The LoKI model writes them to the MCPL files (``MCPL_output`` of McStas,
+``weight_mode=1``: the weights are scaled with the number of simulated neutrons, ``initial_ray_count`` in the file); the
+Geant4 simulation keeps them in the detection events, and the conversion to measured-like data turns them into
+neutrons. The Larmor model (and the earlier LoKI model) converts the weights to whole neutrons (weight 1) already when
+writing the MCPL file (``MCPL_output_deweight``, ``deweight=1``):
 
 -  **Splitting**: while the weight p ≥ 1, a neutron of weight 1 is written and p is reduced by 1.
 -  **Russian roulette**: for 0 < p < 1, a neutron of weight 1 is written with probability p (``if (p > rand) p = 1;   else p = 0;``).
@@ -90,11 +92,8 @@ instrument are described in its README; those for the Geant4 simulation:
    * - Parameter
      - Meaning
    * - ``mcplout``
-     - 1: write the MCPL file for Geant4 (default 0).
-   * - ``acc_power``
-     - Accelerator power in MW (default 5), the intensity of the ``ESS_butterfly`` source.
-   * - ``deweight``
-     - Apply the deweighting (default 1).
+     - MCPL files for Geant4: 0 = none (default), 1 = front/middle and rear bank files, 2 = front/middle banks file
+       only, 3 = rear bank file only.
    * - ``beamstop``
      - Beamstop in front of the rear bank: 0 = 70 mm × 70 mm (default), 1-5 = the beamstops of ESS-1178830 (the
        ``beamstop_id`` of the Geant4 geometry, see :ref:`loki-geometry-beamstops`).
@@ -104,33 +103,35 @@ instrument are described in its README; those for the Geant4 simulation:
    * - ``collen``, ``reardet``
      - Collimation length (3, 5 or 8 m) and rear bank distance from the sample [m].
 
-**MCPL output.** ``mcpl_out`` writes one file, 0.2 m after the sample: the neutrons that pass the beamstop and the slit
-``mcpl_slit`` (towards the detector banks). Its name is made of the instrument settings, e.g.
-``loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A-reardet_10.0m.mcpl.gz``. Simulate it with the same rear bank
-distance (``rear_detector_distance_m``) and beamstop (``beamstop_id``). The SPLIT before the sample is fixed (10), so
-the weights are lowered with more neutrons (``-n``) or a lower ``acc_power``; with ``deweight=1`` the file has the
-neutrons of one second of beam at ``acc_power``.
+**MCPL output.** Two files, 0.2 m after the sample (the slit ``mcpl_slit`` passes the neutrons towards the detector
+banks): ``mcpl_out_frontmid`` writes the neutrons towards the front and middle banks (``<name>_frontmid.mcpl.gz``,
+independent of ``reardet``), ``mcpl_out_rear`` those towards the rear bank, through the opening between the middle
+banks, that pass the beamstop (``<name>_rear.mcpl.gz``). ``<name>`` is made of the instrument settings, e.g.
+``loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A``. Together the two files hold all neutrons towards the
+detectors, and each can be simulated with its own statistics: a SANS sample sends most neutrons to the rear bank, a
+flat scatterer to the front and middle banks. ``mcplout=2`` or ``3`` writes only one of them (the other one is created
+empty). The McStas command line (with the values of the run) and the instrument file are stored in the files. The
+beam before the sample can be reused for several samples or rear bank distances with
+`restage <https://github.com/g5t/restage>`__ (``splitrun``), which splits the instrument at the arm ``mcpl_split``.
 
 **From McStas to Geant4** (the parameter values are examples):
 
 .. code:: sh
 
-   # 1. McStas: writes the MCPL file (and the monitor files) to DIR
-   mcrun -y LOKI_main.instr -d DIR -n1e9 collen=5 reardet=10 beamstop=5 mcplout=1 acc_power=0.5
-   # 2. Geant4: simulation and analysis of the MCPL file
-   sb_loki_simanachain g4 event_gen=mcpl input_file=DIR/<name>.mcpl.gz rear_detector_distance_m=10 beamstop_id=5 \
-       analysis_straw_pixel_number=512 -j10
+   # 1. McStas: writes the two MCPL files (and the monitor files) to DIR
+   mcrun -y LOKI_main.instr -d DIR -n1e9 collen=5 reardet=10 beamstop=5 mcplout=1
+   # 2. Geant4: simulation and analysis of each file, with the rear bank distance and beamstop of the configuration
+   sb_loki_simanachain g4_frontmid event_gen=mcpl input_file=DIR/<name>_frontmid.mcpl.gz rear_detector_distance_m=10 \
+       beamstop_id=5 analysis_straw_pixel_number=512 -j10
+   sb_loki_simanachain g4_rear event_gen=mcpl input_file=DIR/<name>_rear.mcpl.gz rear_detector_distance_m=10 \
+       beamstop_id=5 analysis_straw_pixel_number=512 -j10
 
-For a quick test of the chain use ``-n1e7 acc_power=5e-3`` (about 2·10⁴ neutrons in the MCPL file). For large files
-see :doc:`dmsc`.
+The detection events keep the McStas weights: the configuration's result is the sum of the two detection files, each
+divided by its ``mcpl_stat_sum_initial_ray_count`` (neutrons/s). For a quick test of the chain use ``-n1e7`` (about
+7000 and 80 neutrons in the files). For large files see :doc:`dmsc`.
 
-**Mantid.** The Mantid processing (see :doc:`mantid`) was written for the earlier LoKI model
-(`loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__, Bitbucket), which wrote three
-MCPL files (front and middle banks, rear bank at 5 m and at 10 m) and had the monitors ``PreSampleMonitor`` and
-``beamstopMonitor_5m``/``beamstopMonitor_10m``. These two monitors are not in the current model: process its detection
-files with ``--detectorOnly``.
-
-**Numbers of the earlier model** on the DMSC cluster (apertures ``sourceapx=0.030 sourceapy=0.025 sampleapx=0.010
+**Numbers of the earlier model** (`loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__,
+deweighted MCPL files: three files, front and middle banks and the rear bank at 5 m and at 10 m) on the DMSC cluster (apertures ``sourceapx=0.030 sourceapy=0.025 sampleapx=0.010
 sampleapy=0.015``; front/middle banks and rear bank files; the flat scatterer was ``sampletype=0``, the Gaussian coil
 ``sampletype=18`` is not in the current model, and the SPLIT was a parameter). Local runs with 1/100 of the neutrons
 and of the power give 1/100 of these numbers.

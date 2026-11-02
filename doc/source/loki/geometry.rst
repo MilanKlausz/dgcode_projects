@@ -147,14 +147,6 @@ the recorded placement, so a changed or deleted calibration file does not change
 file. GRIFF files from before the calibrations (without the ``bank_calibration`` parameter) are analysed with the
 nominal Geant4 geometry.
 
-.. important::
-
-   The Mantid processing (LokiMantid) assumes the nominal geometry: its instrument definition files are nominal.
-   Simulations to be processed with Mantid need ``bank_calibration=nominal-geant4-geometry``; otherwise the simulation
-   prints a note, and the analysis and LokiMantid a warning. Using a calibration there would need new instrument
-   definition files. (Measured data are not affected: for them Mantid takes the pixel geometry from the instrument's
-   NeXus file, which loki-geometry updates to the surveyed geometry.)
-
 .. _loki-geometry-adding-a-calibration:
 
 Adding a calibration
