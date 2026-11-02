@@ -95,9 +95,9 @@ instrument are described in its README; those for the Geant4 simulation:
      - MCPL files for Geant4: 0 = none (default), 1 = front/middle and rear bank files, 2 = front/middle banks file
        only, 3 = rear bank file only.
    * - ``mcpl_min_weight``
-     - Russian roulette of the MCPL output below this weight (in the units of the MCPL weights, McStas weight × the
-       number of rays; default 1e9, 0 = none): kept with the probability weight/``mcpl_min_weight``, with that weight.
-       About 40% fewer neutrons for Geant4, at no loss of precision.
+     - Russian roulette of the MCPL output below this McStas weight (n/s per ray; default 1e-2, 0 = none): kept with
+       the probability weight/``mcpl_min_weight``, with the weight ``mcpl_min_weight``. About 25% fewer neutrons for
+       Geant4 in a water sample run of 1e9 rays, at no loss of precision.
    * - ``beamstop``
      - Beamstop in front of the rear bank: 0 = 70 mm × 70 mm (default), 1-5 = the beamstops of ESS-1178830 (the
        ``beamstop_id`` of the Geant4 geometry, see :ref:`loki-geometry-beamstops`).
