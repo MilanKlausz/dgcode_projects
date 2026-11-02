@@ -50,11 +50,22 @@ def launch(geo, extra_generators=None, user_data=None):
           for statkey, statvalue in tmp_myfile.stat_sum.items():
             launcher.setUserData(f"mcpl_stat_sum_{statkey}", repr(statvalue))
           launcher.setUserData("mcpl_comments", "\n".join(tmp_myfile.comments))
+          launcher.setUserData("mcpl_source", tmp_myfile.sourcename)
           gen.allow_zero_weight = True  # McStas writes particles of weight 0 too
 
-          gen.dz_meter = 0.2 #default nominal sample position to mcpl_output mcstas component distance. New mcpl files store this value with the 'sample_mcpl_distance_m' key, the default is needed for older mcpl files
-          if('sample_mcpl_distance_m' in tmp_myfile.blobs):
-            gen.dz_meter = float(tmp_myfile.blobs['sample_mcpl_distance_m'])
+          from LOKI import McplMetadata
+          mcplMeta = McplMetadata.read(gen.getParameterString('input_file'))
+          #sample to MCPL plane distance: from the instrument file in the header (0.2 m if it is not there, older files)
+          gen.dz_meter = mcplMeta.plane_distance_m if mcplMeta.plane_distance_m is not None else 0.2
+          if mcplMeta.output == 'rear': #the McStas beamstop (at the rear bank) has already removed its neutrons
+            def checkMcStasRearSettings():
+              geometry = launcher.getGeo()
+              for mcstasName, geoName in (('reardet', 'rear_detector_distance_m'), ('beamstop', 'beamstop_id')):
+                mcstasValue = mcplMeta.parameter(mcstasName)
+                geoValue = geometry.getParameterDouble(geoName) if geoName.endswith('_m') else geometry.getParameterInt(geoName)
+                if mcstasValue is not None and mcstasValue != geoValue:
+                  print(f"LOKI Launcher WARNING: {geoName}={geoValue}, but the McStas simulation of the MCPL file used {mcstasName}={mcstasValue}")
+            launcher.addPrePreInitHook(checkMcStasRearSettings)
 
         gen.dx_meter = launcher.getParameterDouble('gen_x_offset_meters')
     elif launcher.getParameterString('event_gen')=='flood': #Flood source simulation
