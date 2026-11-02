@@ -211,7 +211,10 @@ int main(int argc, char**argv) {
       printf("WARNING: detectionEvents.mcpl: the simulation used bank_calibration=%s, but the LokiMantid scripts (Mantid "
              "instrument definition) assume the nominal geometry (%s): its pixel positions in Mantid would be wrong "
              "(see LokiMantid/python/workspaceCreator.py).\n", bankCalibrationName.c_str(), BankCalibration::nominalName.c_str());
-    detectionFile = new DetectionFileCreator("detectionEvents.mcpl", userData);
+    // MCPL input without a universal weight (e.g. the McStas weights): the detection events keep the weights
+    const bool weighted = gen.getName()=="G4MCPLPlugins/MCPLGen"
+      && (!userData.count("mcpl_universal_weight") || std::stod(userData["mcpl_universal_weight"]) == 0.0);
+    detectionFile = new DetectionFileCreator("detectionEvents.mcpl", userData, weighted);
   }
   // auto h_neutron_pixel_hit_count = hc.book1D("Number of hits in pixels (all banks)", numberOfPixels, 0, numberOfPixels, "neutron_pixel_hit_count");
   //      h_neutron_pixel_hit_count->setXLabel("Pixel ID");
@@ -458,7 +461,7 @@ int main(int argc, char**argv) {
           h_layer_lambda_hit->fill(lambda_hit_calculated, layerNumber_conv, hit.eventHitWeight()); // the layer of the conversion
 
           if (createDetectionMcplFile == true && bankFilter(bankId_conv)) {
-            detectionFile->addDetectionEvent(pixelId, hit.eventHitTime()/Units::ms);
+            detectionFile->addDetectionEvent(pixelId, hit.eventHitTime()/Units::ms, hit.eventHitWeight());
           }
         } // end hit in event
       } // end if conversion condition

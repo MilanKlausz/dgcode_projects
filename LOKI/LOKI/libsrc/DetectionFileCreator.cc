@@ -1,12 +1,13 @@
 #include "LOKI/DetectionFileCreator.hh"
 
 
-DetectionFileCreator::DetectionFileCreator(const char* fileName, GriffDataRead::StrMap& userData): m_fileName(fileName) {
+DetectionFileCreator::DetectionFileCreator(const char* fileName, GriffDataRead::StrMap& userData, bool weighted): m_fileName(fileName) {
   this->detMcpl = mcpl_create_outfile(fileName);
   mcpl_hdr_set_srcname(this->detMcpl, "LOKI/DetectionFileCreator Class");
   mcpl_hdr_add_comment(this->detMcpl, "Particles in this file are actually detection events, and ekins are pixel ID's. Created with the DetectionFileCreator class.");
   mcpl_enable_universal_pdgcode(this->detMcpl, 99); //for file size reduction
-  mcpl_enable_universal_weight(this->detMcpl, 1); //for file size reduction
+  if (!weighted)
+    mcpl_enable_universal_weight(this->detMcpl, 1); //for file size reduction
   this->mcplParticle = mcpl_get_empty_particle(this->detMcpl);
   initiateMcplParticle();
 
@@ -41,8 +42,9 @@ void DetectionFileCreator::initiateMcplParticle() {
   this->mcplParticle->direction[2] = 1;
 }
 
-void DetectionFileCreator::addDetectionEvent(const int pixelId, const double tof) {
+void DetectionFileCreator::addDetectionEvent(const int pixelId, const double tof, const double weight) {
   this->mcplParticle->ekin = pixelId;
   this->mcplParticle->time = tof;
+  this->mcplParticle->weight = weight; //(ignored with the universal weight)
   mcpl_add_particle(this->detMcpl, this->mcplParticle);
 }

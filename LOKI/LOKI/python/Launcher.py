@@ -44,6 +44,13 @@ def launch(geo, extra_generators=None, user_data=None):
             except UnicodeDecodeError:
               continue  # a binary blob (e.g. the configuration stored by the MCPL writer of dgcode): not user data
             launcher.setUserData(blobkey, str(blobvalue))
+          # the weights of the file: the universal weight (0: each particle has its own, e.g. the McStas weights), and
+          # the normalisation of the McStas weights (stat:sum initial_ray_count: sum of the weights / it = neutrons/s)
+          launcher.setUserData("mcpl_universal_weight", str(tmp_myfile.opt_universalweight))
+          for statkey, statvalue in tmp_myfile.stat_sum.items():
+            launcher.setUserData(f"mcpl_stat_sum_{statkey}", repr(statvalue))
+          launcher.setUserData("mcpl_comments", "\n".join(tmp_myfile.comments))
+          gen.allow_zero_weight = True  # McStas writes particles of weight 0 too
 
           gen.dz_meter = 0.2 #default nominal sample position to mcpl_output mcstas component distance. New mcpl files store this value with the 'sample_mcpl_distance_m' key, the default is needed for older mcpl files
           if('sample_mcpl_distance_m' in tmp_myfile.blobs):
