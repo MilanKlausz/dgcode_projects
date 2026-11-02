@@ -94,6 +94,10 @@ instrument are described in its README; those for the Geant4 simulation:
    * - ``mcplout``
      - MCPL files for Geant4: 0 = none (default), 1 = front/middle and rear bank files, 2 = front/middle banks file
        only, 3 = rear bank file only.
+   * - ``mcpl_min_weight``
+     - Russian roulette of the MCPL output below this weight (in the units of the MCPL weights, McStas weight × the
+       number of rays; default 1e9, 0 = none): kept with the probability weight/``mcpl_min_weight``, with that weight.
+       About 40% fewer neutrons for Geant4, at no loss of precision.
    * - ``beamstop``
      - Beamstop in front of the rear bank: 0 = 70 mm × 70 mm (default), 1-5 = the beamstops of ESS-1178830 (the
        ``beamstop_id`` of the Geant4 geometry, see :ref:`loki-geometry-beamstops`).
@@ -105,8 +109,11 @@ instrument are described in its README; those for the Geant4 simulation:
 
 **MCPL output.** Two files, 0.2 m after the sample (the slit ``mcpl_slit`` passes the neutrons towards the detector
 banks): ``mcpl_out_frontmid`` writes the neutrons towards the front and middle banks (``<name>_frontmid.mcpl.gz``,
-independent of ``reardet``), ``mcpl_out_rear`` those towards the rear bank, through the opening between the middle
-banks, that pass the beamstop (``<name>_rear.mcpl.gz``). ``<name>`` is made of the instrument settings, e.g.
+independent of ``reardet``), ``mcpl_out_rear`` those towards the rear bank that pass the beamstop (``<name>_rear.mcpl.gz``). The split
+(``mcpl_rear_or_frontmid``) is where a neutron crosses the planes of the B4C masks of the middle banks: the rear bank
+file has those inside the middle of the masks, so none of its neutrons reaches the straws of the middle banks, and
+none of the front/middle file reaches the rear bank directly (checked with Geant4 geantinos for the nominal and the
+surveyed bank positions); both files have some neutrons hitting the masks. ``<name>`` is made of the instrument settings, e.g.
 ``loki-collen_5.0m-ap1_30mm-ap2_10mm-lmin_3.0A-lmax_11.5A``. Together the two files hold all neutrons towards the
 detectors, and each can be simulated with its own statistics: a SANS sample sends most neutrons to the rear bank, a
 flat scatterer to the front and middle banks. ``mcplout=2`` or ``3`` writes only one of them (the other one is created
