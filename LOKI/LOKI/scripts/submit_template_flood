@@ -10,10 +10,11 @@ submitJobRange = [0, 500] #limit how many jobs are submitted at once (prevent DM
 
 queue = 'newlong' #DMSC queue
 # The command to run, with input parameters
-cmdbase = ['sb_lokisim_simanachain'
+cmdbase = ['sb_loki_simanachain'
           ,'results'
           ,'event_gen=flood'
-          ,'aiming_bank_id=3']
+          ,'aiming_bank_id=3'
+          ,'bank_calibration=2026-September-SAM-606'] #the surveyed (as built) bank positions, also the default; nominal-geant4-geometry: the design
 
 # Submit the jobs in a loop
 for i in range(nJobs):
