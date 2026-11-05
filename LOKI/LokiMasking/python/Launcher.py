@@ -26,14 +26,8 @@ def launch(geo):
       launcher.setUserData("analysis_straw_pixel_number", str(launcher.getParameterInt('analysis_straw_pixel_number')))
       launcher.setUserData("rear_detector_distance_m", str(launcher.getGeo().getParameterDouble("rear_detector_distance_m")))
       launcher.setUserData("aiming_bank_id", str(launcher.getParameterInt('aiming_bank_id')))
-      # the bank placements: the name and the text of the calibration (the analysis uses the recorded text, so that
-      # it has the placements of the simulation even if the calibration file changes or is not there)
-      bankCalibration = launcher.getGeo().getParameterString("bank_calibration")
-      launcher.setUserData("bank_calibration", bankCalibration)
-      # banks moved from their calibrated positions (bank_shifts_mm): the recorded text has the shifted placements
-      bankShifts = launcher.getGeo().getParameterString("bank_shifts_mm") if launcher.getGeo().hasParameterString("bank_shifts_mm") else ""
-      launcher.setUserData("bank_shifts_mm", bankShifts)
-      launcher.setUserData("bank_calibration_text", LokiAim.bankCalibrationText(bankCalibration, bankShifts))
+      for key, value in LokiAim.bankPlacementUserData(launcher.getGeo()).items():
+        launcher.setUserData(key, value)
 
     launcher.addPrePreInitHook(addUserData) #add userdata when all parameters are available
 

@@ -1,6 +1,6 @@
 """Metadata of the MCPL files of the LoKI McStas -> Geant4 chain, from the file header only (no particle is read).
 
-  python3 -m LOKI.McplMetadata FILE [--get NAME ...] [--json] [--intensity]
+  python3 -m LOKI.McplMetadata FILE [--get NAME ... | --json | --intensity]
 
 Reads the McStas output files (LOKI_main, MCPL_output: <name>_frontmid / <name>_rear) and the detection files of the
 analysis (detectionEvents.mcpl, which keep the McStas header as blobs next to the Geant4 user data):
@@ -26,7 +26,6 @@ import sys
 
 MCSTAS_SOURCE = re.compile(r'^mcstas\s+(?P<version>\S+)\s+(?P<instrument>\S+)$', re.IGNORECASE)
 OUTPUT_COMPONENT = re.compile(r'^Output by COMPONENT:\s*(?P<name>\S+)$')
-STAT_SUM_COMMENT = re.compile(r'^stat:sum:(?P<key>[^:]+):\s*(?P<value>\S+)$')
 USERFLAGS_COMMENT = re.compile(r'^userflags:\s*(?P<text>.*)$')
 DETECTION_SOURCE = 'LOKI/DetectionFileCreator Class'
 OLD_PLANE_DISTANCE_BLOB = 'sample_mcpl_distance_m'  # written by the earlier LoKI models
@@ -53,11 +52,9 @@ class McplMetadata:
     plane_distance_m: float = None      # output plane from the sample (z of the component AT, RELATIVE Sample)
     geant4: dict = dataclasses.field(default_factory=dict)      # detection files: the Geant4 user data
 
-    def parameter(self, name, default=None):
-        """A McStas parameter as a number (int or float) if it is one, else as given."""
-        if name not in self.parameters:
-            return default
-        return _number(self.parameters[name])
+    def parameter(self, name):
+        """A McStas parameter as a number (int or float) if it is one, else as given; None if it is not there."""
+        return _number(self.parameters[name]) if name in self.parameters else None
 
     def get(self, name):
         """A field, else a McStas parameter, else a Geant4 setting (for --get)."""
@@ -104,6 +101,22 @@ def _text_blobs(mcplfile):
     return blobs
 
 
+def user_data(path):
+    """The header of an MCPL file as {key: text} for the GRIFF user data; read() reads it back from detection files."""
+    import mcpl
+    mcplfile = mcpl.MCPLFile(str(path))
+    data = _text_blobs(mcplfile)
+    # the weights of the file: the universal weight (0: each particle has its own, e.g. the McStas weights), and the
+    # normalisation of the McStas weights (stat:sum initial_ray_count: sum of the weights / it = neutrons/s)
+    data['mcpl_universal_weight'] = str(mcplfile.opt_universalweight)
+    for key, value in mcplfile.stat_sum.items():
+        if value is not None:  # None: not set (the run did not finish)
+            data[f'mcpl_stat_sum_{key}'] = repr(value)
+    data['mcpl_comments'] = '\n'.join(mcplfile.comments)
+    data['mcpl_source'] = mcplfile.sourcename
+    return data
+
+
 def parse_cmd_line(cmd_line):
     """The name=value tokens of a McStas command line (the instrument parameters, as given)."""
     return dict(token.split('=', 1) for token in shlex.split(cmd_line) if '=' in token and not token.startswith('-'))
@@ -131,7 +144,7 @@ def read(path):
     blobs = _text_blobs(mcplfile)
     comments = list(mcplfile.comments)
     kind = 'detection' if mcplfile.sourcename == DETECTION_SOURCE else 'other'
-    stat_sum = dict(getattr(mcplfile, 'stat_sum', {}) or {})
+    stat_sum = dict(mcplfile.stat_sum)
     if kind == 'detection':  # the McStas header, as the Launcher stored it in the user data
         comments = blobs.get('mcpl_comments', '').splitlines()
         stat_sum = {key[len('mcpl_stat_sum_'):]: float(value) for key, value in blobs.items()
@@ -141,8 +154,6 @@ def read(path):
     for comment in comments:
         if match := OUTPUT_COMPONENT.match(comment):
             meta.component = match['name']
-        elif (match := STAT_SUM_COMMENT.match(comment)) and match['key'] not in stat_sum:
-            stat_sum[match['key']] = float(match['value'])
         elif match := USERFLAGS_COMMENT.match(comment):
             meta.userflags = match['text']
     if match := MCSTAS_SOURCE.match(mcplfile.sourcename):
@@ -152,7 +163,7 @@ def read(path):
         meta.mcstas_version, meta.instrument = match['version'], match['instrument']
     if meta.component:
         meta.output = next((name for name in ('frontmid', 'rear') if meta.component.endswith(name)), None)
-    if stat_sum.get('initial_ray_count', -1) > 0:  # -1: not set (the run did not finish)
+    if stat_sum.get('initial_ray_count'):  # None: not set (the run did not finish)
         meta.initial_ray_count = stat_sum['initial_ray_count']
     meta.cmd_line = blobs.get('mccode_cmd_line')
     if meta.cmd_line:
@@ -180,9 +191,10 @@ def main(argv=None):
     import argparse
     parser = argparse.ArgumentParser(prog='python3 -m LOKI.McplMetadata', description=__doc__.split('\n')[0])
     parser.add_argument('file')
-    parser.add_argument('--get', nargs='+', metavar='NAME', help='print these values, one per line')
-    parser.add_argument('--json', action='store_true', help='print all metadata as JSON')
-    parser.add_argument('--intensity', action='store_true', help='also read the particles: sum of weights / ncount')
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument('--get', nargs='+', metavar='NAME', help='print these values, one per line')
+    output.add_argument('--json', action='store_true', help='print all metadata as JSON')
+    output.add_argument('--intensity', action='store_true', help='also read the particles: sum of weights / ncount')
     args = parser.parse_args(argv)
     meta = read(args.file)
     if args.get:

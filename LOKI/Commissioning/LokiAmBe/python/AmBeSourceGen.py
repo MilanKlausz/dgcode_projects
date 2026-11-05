@@ -31,6 +31,29 @@ DEFAULT_SPECTRUM = "ambe_hdpe_d26cm_h26cm_spectrum.txt"
 SURFACES = ("side", "top", "bottom")
 
 
+def _cdf(values):
+    """The normalised cumulative sum of the values."""
+    total, acc, cdf = sum(values), 0.0, []
+    for value in values:
+        acc += value
+        cdf.append(acc / total)
+    return cdf
+
+
+def _pick(cdf, u):
+    """The index of the bin of a uniform random number."""
+    return min(bisect.bisect_left(cdf, u), len(cdf) - 1)
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _unit(v):
+    norm = math.sqrt(sum(c * c for c in v))
+    return tuple(c / norm for c in v)
+
+
 def read_table(path):
     """The table of a moderator: (lower edges, upper edges, {surface: neutrons per source neutron in the bins}) [eV],
     and the angular distributions {surface: [(lower energy, upper energy, fractions in equal cos bins)]}. Tables with
@@ -45,7 +68,8 @@ def read_table(path):
                 angular.setdefault(words[1], []).append((float(words[2]), float(words[3]), [float(x) for x in words[4:]]))
                 continue
             values = [float(x) for x in words]
-            low.append(values[0]), high.append(values[1])
+            low.append(values[0])
+            high.append(values[1])
             for surface, value in zip(SURFACES, values[2:]):
                 spectra.setdefault(surface, []).append(value)
     return low, high, spectra, angular
@@ -76,16 +100,11 @@ class EnergySampler:
                 self.bins.append((lo, hi))
         self.total = sum(value)  # neutrons per source neutron (all energies)
         self.selected = sum(weights)  # in the selected energy range
-        self.cdf = []
-        acc = 0.0
-        for w in weights:
-            acc += w
-            self.cdf.append(acc / self.selected if self.selected > 0 else 1.0)
+        self.cdf = _cdf(weights)
 
     def sample(self, u1, u2):
         """An energy [eV] for two uniform random numbers."""
-        i = min(bisect.bisect_left(self.cdf, u1), len(self.cdf) - 1)
-        lo, hi = self.bins[i]
+        lo, hi = self.bins[_pick(self.cdf, u1)]
         return lo * (hi / lo) ** u2
 
 
@@ -94,26 +113,18 @@ class AngularSampler:
     within a bin) in energy groups."""
 
     def __init__(self, groups):
-        self.groups = []
-        for lo, hi, fractions in groups:
-            total = sum(fractions)
-            cdf, acc = [], 0.0
-            for f in fractions:
-                acc += f
-                cdf.append(acc / total)
-            self.groups.append((lo, hi, cdf))
+        self.groups = [(lo, hi, _cdf(fractions)) for lo, hi, fractions in groups]
 
-    def _cdf(self, energy):
+    def _cdf_at(self, energy):
         return next((c for lo, hi, c in self.groups if lo <= energy < hi), self.groups[-1][2])
 
     def sample(self, energy, u1, u2):
-        cdf = self._cdf(energy)
-        i = min(bisect.bisect_left(cdf, u1), len(cdf) - 1)
-        return (i + u2) / len(cdf)
+        cdf = self._cdf_at(energy)
+        return (_pick(cdf, u1) + u2) / len(cdf)
 
     def density(self, energy, mu):
         """probability density per unit cos(angle to the normal) at mu (0 <= mu <= 1)"""
-        cdf = self._cdf(energy)
+        cdf = self._cdf_at(energy)
         n = len(cdf)
         i = min(int(mu * n), n - 1)
         return (cdf[i] - (cdf[i - 1] if i > 0 else 0.0)) * n
@@ -139,11 +150,11 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         self.addParameterString("angular_distribution", "moderator")
         # direction biasing: a cone of this half angle around the direction to the aim point (0: no biasing)
         self.addParameterDouble("aim_half_angle_deg", 0.0)
-        # the particle: "neutron", or "geantino" for line-of-sight (geometry) studies with the same sampling
-        self.addParameterString("particle", "neutron")
         self.addParameterDouble("aim_x_meters", 0.0)
         self.addParameterDouble("aim_y_meters", 0.0)
         self.addParameterDouble("aim_z_meters", 10.0)
+        # the particle: "neutron", or "geantino" for line-of-sight (geometry) studies with the same sampling
+        self.addParameterString("particle", "neutron")
 
     def init_generator(self, gun):
         gun.set_type(self.particle)
@@ -166,55 +177,31 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         self._surfaces = [s for s in surfaces if self._samplers[s].selected > 0]
         if not self._surfaces:
             raise ValueError(f"AmBeSourceGen: no neutrons between {self.min_energy_eV:g} and {self.max_energy_eV:g} eV")
-        self.yield_per_source_neutron = sum(self._samplers[s].selected for s in self._surfaces)
-        self._surface_cdf, acc = [], 0.0
-        for s in self._surfaces:
-            acc += self._samplers[s].selected
-            self._surface_cdf.append(acc / self.yield_per_source_neutron)
-        size = read_moderator_size(path)
-        self._radius_cm = self.moderator_radius_cm if self.moderator_radius_cm > 0 else (size or (None, None))[0]
-        self._height_cm = self.moderator_height_cm if self.moderator_height_cm > 0 else (size or (None, None))[1]
+        selected = [self._samplers[s].selected for s in self._surfaces]
+        self.yield_per_source_neutron = sum(selected)
+        self._surface_cdf = _cdf(selected)
+        radius, height = read_moderator_size(path) or (None, None)
+        self._radius_cm = self.moderator_radius_cm if self.moderator_radius_cm > 0 else radius
+        self._height_cm = self.moderator_height_cm if self.moderator_height_cm > 0 else height
         if self._radius_cm is None or self._height_cm is None:
             raise ValueError(f"AmBeSourceGen: give moderator_radius_cm and moderator_height_cm (not in {name})")
         if not 0.0 <= self.aim_half_angle_deg < 90.0:
             raise ValueError("AmBeSourceGen: aim_half_angle_deg must be in [0, 90)")
         self._cos_aim = math.cos(math.radians(self.aim_half_angle_deg))
         self._cone_fraction = (1.0 - self._cos_aim)  # solid angle of the cone / (2 pi)
+        self._aim = (self.aim_x_meters * units.m, self.aim_y_meters * units.m, self.aim_z_meters * units.m)
         if self.aim_half_angle_deg > 0:
             print(f"AmBeSourceGen: directions biased into a cone of {self.aim_half_angle_deg:g} deg half angle towards "
                   f"({self.aim_x_meters:g}, {self.aim_y_meters:g}, {self.aim_z_meters:g}) m (weighted)")
+        # (the yield in this line is read by LokiOutput/python/AmBeRate.py)
         parts = ", ".join(f"{s} {self._samplers[s].selected:.4f}" for s in self._surfaces)
         print(f"AmBeSourceGen: {name}: {self.yield_per_source_neutron:.4f} neutrons per source neutron in "
               f"{self.min_energy_eV:g} - {self.max_energy_eV:g} eV leaving through the generated surfaces ({parts}); "
               f"one generated neutron = {1.0 / self.yield_per_source_neutron:.4f} source neutrons; directions: "
               f"{self.angular_distribution}; moderator radius {self._radius_cm:g} cm, height {self._height_cm:g} cm")
 
-    def _aimed_direction(self, gun, start, normal, energy, surface):
-        """a direction uniform in the cone towards the aim point, weight = true density / cone density"""
-        aim = (self.aim_x_meters * units.m, self.aim_y_meters * units.m, self.aim_z_meters * units.m)
-        axis = [a - b for a, b in zip(aim, start)]
-        n = math.sqrt(sum(c * c for c in axis))
-        axis = [c / n for c in axis]
-        # an orthonormal basis around the axis
-        helper = (1.0, 0.0, 0.0) if abs(axis[0]) < 0.9 else (0.0, 1.0, 0.0)
-        e1 = (axis[1] * helper[2] - axis[2] * helper[1], axis[2] * helper[0] - axis[0] * helper[2], axis[0] * helper[1] - axis[1] * helper[0])
-        n1 = math.sqrt(sum(c * c for c in e1)); e1 = tuple(c / n1 for c in e1)
-        e2 = (axis[1] * e1[2] - axis[2] * e1[1], axis[2] * e1[0] - axis[0] * e1[2], axis[0] * e1[1] - axis[1] * e1[0])
-        cos_c = 1.0 - self.rand() * (1.0 - self._cos_aim)
-        sin_c = math.sqrt(max(0.0, 1.0 - cos_c * cos_c))
-        psi = 2.0 * math.pi * self.rand()
-        d = tuple(cos_c * a + sin_c * (math.cos(psi) * b + math.sin(psi) * c) for a, b, c in zip(axis, e1, e2))
-        gun.set_direction(*d)
-        mu = sum(a * b for a, b in zip(d, normal))  # cos of the angle to the outward normal
-        if mu <= 0.0:
-            gun.set_weight(0.0)  # into the moderator: not emitted
-            return
-        density = 1.0 if self._angular is None else self._angular[surface].density(energy, min(mu, 1.0))
-        gun.set_weight(density * self._cone_fraction)
-
-    def generate_event(self, gun):
-        surface = self._surfaces[min(bisect.bisect_left(self._surface_cdf, self.rand()), len(self._surfaces) - 1)]
-        energy = self._samplers[surface].sample(self.rand(), self.rand())
+    def _start_on(self, surface):
+        """A random start point on the surface: (point [Geant4 units], outward normal, two tangents)."""
         r, half = self._radius_cm, 0.5 * self._height_cm
         if surface == "side":
             phi = 2.0 * math.pi * self.rand()
@@ -230,17 +217,44 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         start = (self.x_meters * units.m + point[0] * units.cm,
                  self.y_meters * units.m + point[1] * units.cm,
                  self.z_meters * units.m + point[2] * units.cm)
-        gun.set_position(*start)
-        if self.aim_half_angle_deg > 0:
-            self._aimed_direction(gun, start, normal, energy, surface)
-            gun.set_energy(energy * units.eV)
-            return
+        return start, normal, tangents
+
+    def _emitted_direction(self, normal, tangents, energy, surface):
+        """A direction from the angular distribution of the surface (or isotropic in the outward hemisphere)."""
         if self._angular is None:
-            cos_t = self.rand()  # isotropic in the outward hemisphere
+            cos_t = self.rand()
         else:
             cos_t = self._angular[surface].sample(energy, self.rand(), self.rand())
         sin_t = math.sqrt(max(0.0, 1.0 - cos_t * cos_t))
         psi = 2.0 * math.pi * self.rand()
         a, b = sin_t * math.cos(psi), sin_t * math.sin(psi)
-        gun.set_direction(*(cos_t * n + a * t1 + b * t2 for n, t1, t2 in zip(normal, *tangents)))
+        return tuple(cos_t * n + a * t1 + b * t2 for n, t1, t2 in zip(normal, *tangents))
+
+    def _aimed_direction(self, start, normal, energy, surface):
+        """(direction uniform in the cone towards the aim point, weight = true density / cone density)"""
+        axis = _unit([a - b for a, b in zip(self._aim, start)])
+        helper = (1.0, 0.0, 0.0) if abs(axis[0]) < 0.9 else (0.0, 1.0, 0.0)
+        e1 = _unit(_cross(axis, helper))  # an orthonormal basis around the axis
+        e2 = _cross(axis, e1)
+        cos_c = 1.0 - self.rand() * self._cone_fraction
+        sin_c = math.sqrt(max(0.0, 1.0 - cos_c * cos_c))
+        psi = 2.0 * math.pi * self.rand()
+        direction = tuple(cos_c * a + sin_c * (math.cos(psi) * b + math.sin(psi) * c) for a, b, c in zip(axis, e1, e2))
+        mu = sum(a * b for a, b in zip(direction, normal))  # cos of the angle to the outward normal
+        if mu <= 0.0:
+            return direction, 0.0  # into the moderator: not emitted
+        density = 1.0 if self._angular is None else self._angular[surface].density(energy, min(mu, 1.0))
+        return direction, density * self._cone_fraction
+
+    def generate_event(self, gun):
+        surface = self._surfaces[_pick(self._surface_cdf, self.rand())]
+        energy = self._samplers[surface].sample(self.rand(), self.rand())
+        start, normal, tangents = self._start_on(surface)
+        gun.set_position(*start)
+        if self.aim_half_angle_deg > 0:
+            direction, weight = self._aimed_direction(start, normal, energy, surface)
+            gun.set_weight(weight)
+        else:
+            direction = self._emitted_direction(normal, tangents, energy, surface)
+        gun.set_direction(*direction)
         gun.set_energy(energy * units.eV)

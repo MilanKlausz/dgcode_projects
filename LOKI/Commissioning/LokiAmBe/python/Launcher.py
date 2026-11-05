@@ -5,4 +5,4 @@ def launch(user_data=None):
     import G4GeoLoki.GeoBCSBanks as GEO
     import LOKI.Launcher
     from LokiAmBe.AmBeSourceGen import AmBeSourceGen
-    LOKI.Launcher.launch(GEO.create(), extra_generators={'ambe': lambda launcher: AmBeSourceGen()}, user_data=user_data)
+    LOKI.Launcher.launch(GEO.create(), extra_generators={'ambe': AmBeSourceGen}, user_data=user_data)

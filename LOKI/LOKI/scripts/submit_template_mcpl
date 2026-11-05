@@ -27,7 +27,6 @@ queue = 'newlong' #DMSC queue
 cmdbase = ['sb_loki_simanachain'
           ,'results'
           ,'event_gen=mcpl'
-          ,'allow_zero_weight=y'
           ,'analysis_straw_pixel_number=512'
           ,'bank_calibration=2026-September-SAM-606' #the surveyed (as built) bank positions, also the default; nominal-geant4-geometry: the design
           ,f'rear_detector_distance_m={rearDetDistance}'

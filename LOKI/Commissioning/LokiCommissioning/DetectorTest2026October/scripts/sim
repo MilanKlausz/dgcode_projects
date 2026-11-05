@@ -7,14 +7,14 @@
 import sys
 import DetectorTest2026October.Setups as Setups
 
-name, args = Setups.expand(sys.argv[1:])
-if name is None and not any(a in ('-h', '--help') for a in args):
-    print('NOTE: no setup=<name> given (setups: ' + ', '.join(Setups.names()) + '): sb_lokiambe_sim without a setup', flush=True)
-sys.argv[1:] = args
+name, sys.argv[1:] = Setups.expand(sys.argv[1:])
 user_data = None
 if name is not None:
-    user_data = {'detector_test_setup': name, 'detector_test_setups_checksum': Setups.checksum()}
-    print(f'DetectorTest2026October: setup {name} (setups.toml {Setups.checksum()})', flush=True)
+    checksum = Setups.checksum()
+    user_data = {'detector_test_setup': name, 'detector_test_setups_checksum': checksum}
+    print(f'DetectorTest2026October: setup {name} (setups.toml {checksum})', flush=True)
+elif not {'-h', '--help'} & set(sys.argv):
+    print('NOTE: no setup=<name> given (setups: ' + ', '.join(Setups.names()) + '): sb_lokiambe_sim without a setup', flush=True)
 
 import LokiAmBe.Launcher
 LokiAmBe.Launcher.launch(user_data)

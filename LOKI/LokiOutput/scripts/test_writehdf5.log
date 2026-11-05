@@ -26,3 +26,5 @@ Created out.h5: 2 analysis output(s), 20 source events, 8 counts (sum of weights
   OK: error for outputs of different geometries
   OK: older output without the given geometry: error
   OK: older output with the given geometry (same positions; variances = counts, noted)
+  OK: AmBe rate at 1 Ci, yield from --ambe-yield
+  OK: AmBe rate at 1 Ci, yield from the log of a chain directory

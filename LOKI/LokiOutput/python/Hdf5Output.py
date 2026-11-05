@@ -1,8 +1,8 @@
-"""HDF5 output of a LOKI simulation: the simulated counts per pixel, in the format of the AmBe source study files.
+"""HDF5 output of a LOKI simulation: the simulated counts per pixel.
 
   sb_lokioutput_writehdf5 INPUT [INPUT ...] -o OUT.h5 [options] [KEY=VALUE ...]
 
-INPUT: the SimpleHists files of the analysis (sb_loki_ana: *.shist), or the output directories of sb_loki_simanachain
+INPUT: the SimpleHists files of the analysis (sb_loki_ana: *.shist), or the output directories of a simanachain command
 (the *.shist file of their runana directory). Several inputs (e.g. the jobs of a cluster run) are added up; they must
 have the same geometry. KEY=VALUE pairs are written as attributes of /entry (e.g. description=...).
 
@@ -20,32 +20,30 @@ The file (h5py and scipp friendly; NeXus-like names, but not a NeXus file):
                                       along the beam, origin at the sample position
       tube, straw, pixel (n,) int32   the indices in the bank (detector_number - first = (tube * 7 + straw) * pixels + pixel;
                                       tube = layer * tubes_per_layer + row)
-  with --ambe-yield (or found in the simulation log of an AmBe run directory), the AmBe source normalisation:
-      rate_1Ci          (n,) float64  the counts as a rate [1/s] for a 1 Ci AmBe source (2.2e6 neutrons/s)
+  for an AmBe source (--ambe-yield, or the yield found in the simulation logs of a simanachain directory, see AmBeRate.py):
+      rate_1Ci          (n,) float64  the counts as a rate [1/s] for a 1 Ci source
   and the /entry attributes neutrons_per_source_event and rate_1Ci_per_count_per_s.
-
-The files of the AmBe source study (2026) had the same layout, but with the pixel positions of the measured files and
-x/y/z_pixel_offset; this output has the positions of the simulated geometry and no pixel offsets.
 
 Loading with scipp (h5py + scipp, outside dgcode): LokiOutput/data/hdf5_scipp_snippet.py.
 """
-
 import datetime
 import glob
-import gzip
 import os
 import re
 import tempfile
 
+import h5py
 import numpy as np
+import SimpleHists as sh
+
+import G4GeoLoki.LokiAimHelper as LokiAim
+import LokiOutput.AmBeRate as AmBeRate
 
 PIXEL_HIST = 'h_neutron_pixel_hit'
 PIXEL_W2_HIST = 'h_neutron_pixel_hit_w2'  # sum of squared weights, with the geometry in its comment
-AMBE_NEUTRONS_PER_S_1CI = 2.2e6
 NUMBER_OF_BANKS = 9
 LAYERS = 4
 STRAWS_PER_TUBE = 7
-AMBE_YIELD_LINE = re.compile(r'AmBeSourceGen: \S+: ([0-9.eE+-]+) neutrons per source neutron')
 
 
 class SimulatedCounts:
@@ -75,7 +73,7 @@ def _pixel_order(hist):
 
 
 def find_shist(path):
-    """The analysis output of an input: the file itself, or the *.shist of a sb_loki_simanachain directory."""
+    """The analysis output of an input: the file itself, or the *.shist of a simanachain directory."""
     if os.path.isfile(path):
         return path
     files = sorted(glob.glob(os.path.join(path, 'runana', '*.shist'))) or sorted(glob.glob(os.path.join(path, '*.shist')))
@@ -84,111 +82,112 @@ def find_shist(path):
     return files[0]
 
 
-def read_counts(paths, geometry=None):
-    """Add up the pixel counts of the analysis outputs. geometry: for outputs without the recorded geometry (older
+def _read_output(path):
+    """(shist file, counts, squared weights or None, events, recorded geometry or None, pixels per straw) of an input."""
+    shist = find_shist(path)
+    collection = sh.HistCollection(shist)
+    if PIXEL_HIST not in collection.keys:
+        raise ValueError(f'{shist}: no {PIXEL_HIST} histogram (not an output of sb_loki_ana)')
+    hist = collection.hist(PIXEL_HIST)
+    w2, geometry = None, None
+    if PIXEL_W2_HIST in collection.keys:
+        w2hist = collection.hist(PIXEL_W2_HIST)
+        w2, geometry = _pixel_order(w2hist), parse_geometry_comment(w2hist.comment)
+    counters = {counter.label: counter.value for counter in collection.hist('neutron_counters').counters}
+    return shist, _pixel_order(hist), w2, counters['count_initial_neutrons'], geometry, int(hist.nbinsx)
+
+
+def read_counts(paths, given_geometry=None):
+    """Add up the pixel counts of the analysis outputs. given_geometry: for outputs without the recorded geometry (older
     analyses): rear_detector_distance_m and bank_calibration (the straw pixel number is the histogram binning)."""
-    import SimpleHists as sh
-    counts = variances = None
+    counts = variances = recorded = None
     n_events = 0.0
-    recorded = None
     sources = []
     for path in paths:
-        shist = find_shist(path)
+        shist, c, w2, events, geometry, pixels_per_straw = _read_output(path)
+        n_events += events
         sources.append(shist)
-        collection = sh.HistCollection(shist)
-        if PIXEL_HIST not in collection.keys:
-            raise ValueError(f'{shist}: no {PIXEL_HIST} histogram (not an output of sb_loki_ana)')
-        hist = collection.hist(PIXEL_HIST)
-        c = _pixel_order(hist)
-        if PIXEL_W2_HIST in collection.keys:
-            w2hist = collection.hist(PIXEL_W2_HIST)
-            this = parse_geometry_comment(w2hist.comment)
-            if recorded is not None and this != recorded:
-                raise ValueError(f'{shist}: another geometry than {sources[0]} (bank calibration, rear detector distance '
-                                 'or pixels per straw); only outputs of the same geometry can be added up')
-            recorded = this
-            w2 = _pixel_order(w2hist)
-        else:
-            if recorded is not None or (variances is not None):
-                raise ValueError(f'{shist}: older analysis output (no {PIXEL_W2_HIST}) mixed with newer ones')
-            w2 = None
         if counts is None:
-            counts, variances = c, w2
-        else:
-            if c.shape != counts.shape:
-                raise ValueError(f'{shist}: {c.size} pixels, but {sources[0]} has {counts.size}')
-            counts = counts + c
-            if w2 is not None:
-                variances = variances + w2
-        counters = {counter.label: counter.value for counter in collection.hist('neutron_counters').counters}
-        n_events += counters['count_initial_neutrons']
-    pixels_per_straw = int(sh.HistCollection(sources[0]).hist(PIXEL_HIST).nbinsx)
-    if recorded is None:
-        if not geometry or 'rear_detector_distance_m' not in geometry or 'bank_calibration' not in geometry:
-            raise ValueError(f'{sources[0]}: no recorded geometry (an analysis from before {PIXEL_W2_HIST}): give the '
-                             'rear detector distance and the bank calibration of the simulation')
-        recorded = dict(rear_detector_distance_m=float(geometry['rear_detector_distance_m']),
-                        straw_pixel_number=pixels_per_straw, bank_calibration=geometry['bank_calibration'],
-                        bank_calibration_text=None)
-    elif geometry:
-        raise ValueError(f'{sources[0]}: the geometry is recorded in the analysis output; do not give it')
-    return SimulatedCounts(counts, variances, n_events, recorded, sources)
+            counts, variances, recorded = c, w2, geometry
+            continue
+        if (geometry is None) != (recorded is None):
+            raise ValueError(f'{shist}: older analysis output (no {PIXEL_W2_HIST}) mixed with newer ones')
+        if geometry != recorded:
+            raise ValueError(f'{shist}: another geometry than {sources[0]} (bank calibration, rear detector distance '
+                             'or pixels per straw); only outputs of the same geometry can be added up')
+        if c.shape != counts.shape:
+            raise ValueError(f'{shist}: {c.size} pixels, but {sources[0]} has {counts.size}')
+        counts = counts + c
+        if w2 is not None:
+            variances = variances + w2
+    if recorded is not None:
+        if given_geometry:
+            raise ValueError(f'{sources[0]}: the geometry is recorded in the analysis output; do not give it')
+        return SimulatedCounts(counts, variances, n_events, recorded, sources)
+    if not given_geometry or 'rear_detector_distance_m' not in given_geometry or 'bank_calibration' not in given_geometry:
+        raise ValueError(f'{sources[0]}: no recorded geometry (an analysis from before {PIXEL_W2_HIST}): give the '
+                         'rear detector distance and the bank calibration of the simulation')
+    geometry = dict(rear_detector_distance_m=float(given_geometry['rear_detector_distance_m']),
+                    straw_pixel_number=pixels_per_straw, bank_calibration=given_geometry['bank_calibration'],
+                    bank_calibration_text=None)
+    return SimulatedCounts(counts, variances, n_events, geometry, sources)
 
 
-def ambe_yield_from_logs(paths):
-    """The AmBe yield (neutrons per source neutron) printed by AmBeSourceGen in the simulation logs of sb_loki_simanachain
-    directories; None if there is no such directory or line."""
-    values = set()
-    for path in paths:
-        for log in glob.glob(os.path.join(path, 'runsim', 'output.log*')):
-            text = gzip.open(log, 'rt').read() if log.endswith('.gz') else open(log).read()
-            values.update(float(v) for v in AMBE_YIELD_LINE.findall(text))
-    if len(values) > 1:
-        raise ValueError(f'different AmBe yields in the simulation logs: {sorted(values)}; give --ambe-yield')
-    return values.pop() if values else None
-
-
-def pixel_positions(geometry, exact=False):
-    """The pixel centres [m] (pixel-id order, (pixels, 3)) and the AimHelper of the simulated geometry."""
-    import G4GeoLoki.LokiAimHelper as LokiAim
+def aim_helper(geometry):
+    """The AimHelper of the simulated geometry."""
     rear_mm = geometry['rear_detector_distance_m'] * 1000.0
     pixels = geometry['straw_pixel_number']
     text = geometry['bank_calibration_text']
-    if text:  # the placements recorded by the simulation (the same even if the calibration file has changed)
-        with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False) as f:
-            f.write(text)
-        try:
-            helper = LokiAim.AimHelper(rear_mm, pixels, NUMBER_OF_BANKS, f.name)
-        finally:
-            os.unlink(f.name)
-    else:  # the nominal geometry, or an older output (by name)
-        helper = LokiAim.AimHelper(rear_mm, pixels, NUMBER_OF_BANKS, geometry['bank_calibration'])
+    if not text:  # the nominal geometry, or an older output (by name)
+        return LokiAim.AimHelper(rear_mm, pixels, NUMBER_OF_BANKS, geometry['bank_calibration'])
+    with tempfile.NamedTemporaryFile('w', suffix='.txt') as f:  # the placements recorded by the simulation
+        f.write(text)
+        f.flush()
+        return LokiAim.AimHelper(rear_mm, pixels, NUMBER_OF_BANKS, f.name)
+
+
+def pixel_positions(helper, pixels):
+    """The pixel centres [m], pixel-id order, (pixels in the geometry, 3). The pixels of a straw are equally spaced: the
+    first and last pixel centre of each straw from the geometry, linearly interpolated (much faster than every pixel)."""
     n = helper.getTotalNumberOfPixels()
-    if not exact:  # the pixels of a straw are equally spaced: its first and last pixel centre, linearly interpolated
-        first = np.arange(0, n, pixels)
-        start = np.array([helper.getPixelCentreCoordinates(int(i)) for i in first], dtype=np.float64)
-        end = np.array([helper.getPixelCentreCoordinates(int(i) + pixels - 1) for i in first], dtype=np.float64)
-        t = (np.arange(pixels) / max(pixels - 1, 1))[None, :, None]
-        positions = (start[:, None, :] + t * (end - start)[:, None, :]).reshape(n, 3) / 1000.0
-    else:  # every pixel centre from the geometry (for the tests)
-        positions = np.array([helper.getPixelCentreCoordinates(i) for i in range(n)], dtype=np.float64) / 1000.0
-    return positions, helper
+    first = np.arange(0, n, pixels)
+    start = np.array([helper.getPixelCentreCoordinates(int(i)) for i in first], dtype=np.float64)
+    end = np.array([helper.getPixelCentreCoordinates(int(i) + pixels - 1) for i in first], dtype=np.float64)
+    t = (np.arange(pixels) / max(pixels - 1, 1))[None, :, None]
+    return (start[:, None, :] + t * (end - start)[:, None, :]).reshape(n, 3) / 1000.0
 
 
-def write(counts, out, ambe_yield=None, attributes=None):
-    """Write the HDF5 file (see the module documentation)."""
-    try:
-        import h5py
-    except ImportError:
-        raise SystemExit('ERROR: the HDF5 output needs the Python module h5py (e.g. conda install -c conda-forge h5py)')
+def _write_bank(entry, bank, helper, counts, variances, positions, pixels, scaled_counts):
+    first, n = helper.getBankPixelOffset(bank), helper.getNumberOfPixels(bank)
+    tubes = n // (STRAWS_PER_TUBE * pixels)
+    local = np.arange(n, dtype=np.int64)
+    kw = dict(compression='gzip', compression_opts=4)
+    g = entry.create_group(f'loki_detector_{bank}')
+    g.attrs['layers'] = LAYERS
+    g.attrs['tubes_per_layer'] = tubes // LAYERS
+    g.attrs['straws_per_tube'] = STRAWS_PER_TUBE
+    g.attrs['pixels_per_straw'] = pixels
+    g.create_dataset('detector_number', data=first + 1 + local, **kw)
+    g.create_dataset('counts', data=counts[first:first + n], **kw)
+    g.create_dataset('counts_variance', data=variances[first:first + n], **kw)
+    for name, factor in scaled_counts.items():
+        g.create_dataset(name, data=counts[first:first + n] * factor, **kw)
+    for axis, name in enumerate('xyz'):
+        g.create_dataset(f'{name}_position', data=positions[first:first + n, axis], **kw)
+    g.create_dataset('tube', data=(local // (STRAWS_PER_TUBE * pixels)).astype(np.int32), **kw)
+    g.create_dataset('straw', data=(local // pixels % STRAWS_PER_TUBE).astype(np.int32), **kw)
+    g.create_dataset('pixel', data=(local % pixels).astype(np.int32), **kw)
+
+
+def write(counts, out, attributes=None, scaled_counts=None):
+    """Write the HDF5 file (see the module documentation). scaled_counts: {dataset name: factor}: further datasets of the
+    banks, the counts times the factor."""
     geometry = counts.geometry
-    positions, helper = pixel_positions(geometry)
+    pixels = geometry['straw_pixel_number']
+    helper = aim_helper(geometry)
+    positions = pixel_positions(helper, pixels)
     if positions.shape[0] != counts.counts.size:
         raise ValueError(f'the geometry has {positions.shape[0]} pixels, the analysis output {counts.counts.size}')
-    pixels = geometry['straw_pixel_number']
-    rate_per_count = (ambe_yield * AMBE_NEUTRONS_PER_S_1CI / counts.n_events
-                      if ambe_yield is not None and counts.n_events > 0 else None)
-    kw = dict(compression='gzip', compression_opts=4)
     with h5py.File(out, 'w') as f:
         e = f.create_group('entry')
         e.attrs['description'] = ('Geant4 (dgcode LOKI) simulation: simulated counts per pixel ID (the sum of the hit '
@@ -206,32 +205,16 @@ def write(counts, out, ambe_yield=None, attributes=None):
         if counts.variances is None:
             e.attrs['counts_variance_note'] = ('analysis output without the squared weights: counts_variance = counts '
                                                '(right for unweighted events only)')
-        if rate_per_count is not None:
-            e.attrs['neutrons_per_source_event'] = ambe_yield
-            e.attrs['rate_1Ci_per_count_per_s'] = rate_per_count
         for key, value in (attributes or {}).items():
             e.attrs[key] = value
         variances = counts.variances if counts.variances is not None else counts.counts
-        for b in range(NUMBER_OF_BANKS):
-            first, n = helper.getBankPixelOffset(b), helper.getNumberOfPixels(b)
-            tubes = n // (STRAWS_PER_TUBE * pixels)
-            local = np.arange(n, dtype=np.int64)
-            g = e.create_group(f'loki_detector_{b}')
-            g.attrs['layers'] = LAYERS
-            g.attrs['tubes_per_layer'] = tubes // LAYERS
-            g.attrs['straws_per_tube'] = STRAWS_PER_TUBE
-            g.attrs['pixels_per_straw'] = pixels
-            g.create_dataset('detector_number', data=first + 1 + local, **kw)
-            g.create_dataset('counts', data=counts.counts[first:first + n], **kw)
-            g.create_dataset('counts_variance', data=variances[first:first + n], **kw)
-            if rate_per_count is not None:
-                g.create_dataset('rate_1Ci', data=counts.counts[first:first + n] * rate_per_count, **kw)
-            for axis, name in enumerate('xyz'):
-                g.create_dataset(f'{name}_position', data=positions[first:first + n, axis], **kw)
-            g.create_dataset('tube', data=(local // (STRAWS_PER_TUBE * pixels)).astype(np.int32), **kw)
-            g.create_dataset('straw', data=(local // pixels % STRAWS_PER_TUBE).astype(np.int32), **kw)
-            g.create_dataset('pixel', data=(local % pixels).astype(np.int32), **kw)
-    return rate_per_count
+        for bank in range(NUMBER_OF_BANKS):
+            _write_bank(e, bank, helper, counts.counts, variances, positions, pixels, scaled_counts or {})
+
+
+def _is_attribute(argument):
+    """KEY=VALUE, and not an input file with '=' in its name."""
+    return re.match(r'\w+=', argument) is not None and not os.path.exists(argument)
 
 
 def main(argv=None):
@@ -239,34 +222,42 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog='sb_lokioutput_writehdf5', description=__doc__.split('\n')[0],
                                      epilog='See the documentation of LokiOutput/python/Hdf5Output.py for the file layout.')
     parser.add_argument('inputs', nargs='+', metavar='INPUT|KEY=VALUE',
-                        help='analysis outputs (*.shist or sb_loki_simanachain directories); KEY=VALUE: /entry attributes')
+                        help='analysis outputs (*.shist or simanachain directories); KEY=VALUE: /entry attributes')
     parser.add_argument('-o', '--output', required=True, help='the HDF5 file to write')
     parser.add_argument('--ambe-yield', type=float, default=None,
-                        help='AmBe normalisation: neutrons per source neutron (printed by AmBeSourceGen); by default '
-                             'taken from the simulation logs of sb_loki_simanachain directories')
+                        help='AmBe source: neutrons per source neutron (printed by AmBeSourceGen), for the rate at 1 Ci; '
+                             'by default taken from the simulation logs of simanachain directories')
     parser.add_argument('--rear-detector-distance', type=float, default=None, metavar='M',
                         help='only for analysis outputs without the recorded geometry: rear_detector_distance_m')
     parser.add_argument('--bank-calibration', default=None, metavar='NAME',
                         help='only for analysis outputs without the recorded geometry: bank_calibration')
     args = parser.parse_intermixed_args(argv)
-    inputs = [i for i in args.inputs if '=' not in os.path.basename(i)]
-    attributes = dict(i.split('=', 1) for i in args.inputs if '=' in os.path.basename(i))
-    geometry = {}
+    inputs = [i for i in args.inputs if not _is_attribute(i)]
+    attributes = dict(i.split('=', 1) for i in args.inputs if _is_attribute(i))
+    if not inputs:
+        parser.error('no input')
+    given_geometry = {}
     if args.rear_detector_distance is not None:
-        geometry['rear_detector_distance_m'] = args.rear_detector_distance
+        given_geometry['rear_detector_distance_m'] = args.rear_detector_distance
     if args.bank_calibration is not None:
-        geometry['bank_calibration'] = args.bank_calibration
+        given_geometry['bank_calibration'] = args.bank_calibration
+    rate_note = ''
+    scaled_counts = {}
     try:
-        counts = read_counts(inputs, geometry)
-        ambe_yield = args.ambe_yield if args.ambe_yield is not None else ambe_yield_from_logs(inputs)
-        rate_per_count = write(counts, args.output, ambe_yield, attributes)
+        counts = read_counts(inputs, given_geometry)
+        ambe_yield = args.ambe_yield if args.ambe_yield is not None else AmBeRate.yield_from_logs(inputs)
+        if ambe_yield is not None and counts.n_events > 0:
+            rate = AmBeRate.rate_per_count(counts.n_events, ambe_yield)
+            scaled_counts[AmBeRate.RATE_DATASET] = rate
+            attributes = dict(neutrons_per_source_event=ambe_yield, rate_1Ci_per_count_per_s=rate, **attributes)
+            rate_note = f'; AmBe: 1 count = {rate:.6g} /s at 1 Ci'
+        write(counts, args.output, attributes, scaled_counts)
     except (ValueError, KeyError) as error:
         parser.exit(1, f'ERROR: {error}\n')
     print(f'Created {args.output}: {len(inputs)} analysis output(s), {counts.n_events:g} source events, '
           f'{counts.counts.sum():g} counts (sum of weights), bank calibration {counts.geometry["bank_calibration"]}, '
           f'rear detector distance {counts.geometry["rear_detector_distance_m"]:g} m, '
-          f'{counts.geometry["straw_pixel_number"]} pixels per straw'
-          + (f'; AmBe: 1 count = {rate_per_count:.6g} /s at 1 Ci' if rate_per_count is not None else ''))
+          f'{counts.geometry["straw_pixel_number"]} pixels per straw{rate_note}')
 
 
 if __name__ == '__main__':

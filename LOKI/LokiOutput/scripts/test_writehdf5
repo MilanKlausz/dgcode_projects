@@ -8,6 +8,7 @@ run() { local name=$1; shift; "$@" > $name.log 2>&1 || { tail -40 $name.log; ech
 run sim sb_loki_sim -lPL_Empty event_gen=flood -n10
 run ana sb_loki_ana lokisim.griff
 python3 - <<'EOF'
+import os
 import subprocess
 import sys
 import h5py
@@ -37,7 +38,7 @@ def writehdf5(*args):
     return subprocess.run(['sb_lokioutput_writehdf5', *args], capture_output=True, text=True)
 
 r = writehdf5('filled.shist', 'bcsloki_sans.shist', '-o', 'out.h5', 'description=test')
-print(r.stdout.strip().replace(str(H.os.getcwd()) + '/', ''))
+print(r.stdout.strip())
 check(r.returncode == 0, 'sb_lokioutput_writehdf5 of two analysis outputs')
 expected = {}
 for pid, w in hits:
@@ -66,7 +67,8 @@ with h5py.File('out.h5') as f:
         ids.append(dn)
         positions.append(np.stack([g[f'{a}_position'][:] for a in 'xyz'], axis=1))
 check(counts == expected, f'counts and variances at the hit pixels: {sorted(counts.items())}')
-exact, helper = H.pixel_positions(geometry, exact=True)
+helper = H.aim_helper(geometry)
+exact = np.array([helper.getPixelCentreCoordinates(i) for i in range(helper.getTotalNumberOfPixels())]) / 1000.0
 check(np.abs(np.concatenate(positions) - exact).max() < 1e-12, 'pixel positions = the pixel centres of the geometry')
 rng = np.random.default_rng(1)
 ok = True
@@ -94,5 +96,20 @@ with h5py.File('old.h5') as f:
     check(r.returncode == 0 and 'counts_variance_note' in f['entry'].attrs
           and np.allclose(f['entry/loki_detector_0/x_position'][:], positions[0][:, 0]),
           'older output with the given geometry (same positions; variances = counts, noted)')
+
+# the AmBe rate at 1 Ci: with --ambe-yield, and from the log of a simanachain directory (also with --chainmult: runsim_part*)
+r = writehdf5('filled.shist', '-o', 'ambe.h5', '--ambe-yield', '0.4')
+os.makedirs('chain/runana')
+os.makedirs('chain/runsim_part0001')
+subprocess.run(['cp', 'filled.shist', 'chain/runana/'], check=True)
+with open('chain/runsim_part0001/output.log', 'w') as log:  # the line printed by AmBeSourceGen of LokiAmBe
+    log.write('AmBeSourceGen: table.txt: 0.4000 neutrons per source neutron in 0 - 1e+09 eV leaving through ...\n')
+r2 = writehdf5('chain', '-o', 'ambe2.h5')
+expected_rate = 0.4 * 2.2e6 / 10
+with h5py.File('ambe.h5') as f, h5py.File('ambe2.h5') as f2:
+    for name, h in (('--ambe-yield', f), ('the log of a chain directory', f2)):
+        g = h['entry/loki_detector_0']
+        check(np.isclose(h['entry'].attrs['rate_1Ci_per_count_per_s'], expected_rate)
+              and np.allclose(g['rate_1Ci'][:], g['counts'][:] * expected_rate), f'AmBe rate at 1 Ci, yield from {name}')
 sys.exit(1 if failed else 0)
 EOF

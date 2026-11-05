@@ -26,10 +26,6 @@ struct BankTransform {
 /// by BcsTube and BcsPack, the masks by BoronMasks and CalibMasks (the rear calibration mask plate).
 class BcsBanks {
 public:
-  /// The names of all absorbing volumes (B4C masks, triangular masks, beamstop, the B4C and Al panel parts of the packs,
-  /// the Gd paint of the rear calibration mask plate), for the masking analysis and its GRIFF output filter.
-  static const std::vector<std::string>& getAbsorberVolumeNames();
-  static bool isAbsorberVolume(const std::string& volumeName);
   /// bankCalibration: the name of the bank calibration (see BankCalibration.hh), the default is the
   /// nominal geometry.
   BcsBanks(double rearBankDistance, int numberOfBanks = 9, const std::string& bankCalibration = BankCalibration::nominalName);
@@ -51,7 +47,7 @@ public:
   /// The tables of this class follow the drawings: axisIndex 0 = x = the width (along the tubes), 1 = y = the
   /// height (across the tubes), 2 = z = the depth (see the bank frame below).
   static double getBankSize(const int bankId, const int axisIndex); // 0 - x, 1 - y, 2 - z
-  // depth (bank frame x, the front of the bank is at -0.5*bank depth) of the front surface of the frontmost tubes
+  /// The depth (bank frame x, the front of the bank is at -0.5*bank depth) of the front surface of the frontmost tubes.
   static double getTubeFrontPositionInBankFrame(const int bankId);
   static double getPackPositionInBank(const int bankId, const int packNumber, const int axisIndex);// 0 - x, 1 - y, 2 - z
   static double detectorSystemFrontDistanceFromBankFront(const int bankId);
@@ -87,6 +83,10 @@ public:
   /// world, as they are outside the bank volume, with the transform of their bank).
   static PlacementInBank getTriangularBoronMaskPlacementInBankFrame(const int maskId);
   static double getBeamstopSize(const int beamstopId, const int axisIndex); // 0 - x, 1 - y, 2 - z
+  /// The names of all absorbing volumes (B4C masks, triangular masks, beamstop, the B4C and Al panel parts of the packs,
+  /// the Gd paint of the rear calibration mask plate), for the masking analysis and its GRIFF output filter.
+  static const std::vector<std::string>& getAbsorberVolumeNames();
+  static bool isAbsorberVolume(const std::string& volumeName);
 
   ///////// Bank placement in the world (BcsBanksPlacement.cc) /////////
   /// The placement of a bank in the world (the single source for the Geant4 geometry, AimHelper and

@@ -39,6 +39,9 @@ int main(int argc, char **argv) {
   SimpleHists::HistCollection hc;
 
   auto userData = setup->userData();
+  if (!userData.count("bank_shifts_mm"))
+    printf("WARNING: GRIFF file from before the CAD volume names (no bank_shifts_mm in the user data): absorbers, tube "
+           "walls and panels are not recognised, so the results that depend on them are empty.\n");
   // bank placements used by the simulation (files from before the bank_calibration parameter: nominal)
   const std::string bankCalibrationName = geo.hasParameterString("bank_calibration") ? geo.getParameterString("bank_calibration") : BankCalibration::nominalName;
   // the text of the calibration recorded by the simulation (the same placements even if the file changed or is not

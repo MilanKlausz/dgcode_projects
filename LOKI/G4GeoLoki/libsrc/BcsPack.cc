@@ -2,8 +2,6 @@
 #include "Units/Units.hh"
 #include <cmath>
 #include <cassert>
-#include <string>
-#include <cassert>
 
 const double BcsPack::tubeGridParallelogramBase = 27.00 *Units::mm;
 const double BcsPack::tubeGridParallelogramSide = 28.40 *Units::mm;

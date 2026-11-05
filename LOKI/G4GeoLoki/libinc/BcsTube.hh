@@ -6,9 +6,10 @@
 
 class BcsTube {
 public:
-    /// materials ///
   /// The tube (CAD part SI-7615-061; variants _02: 1.2 m, _04: 0.5 m, the 1.0 m variant not in the CAD files at hand)
   static const std::string tubeWallName; // "TubeWall-SI-7615-061"
+
+    /// materials ///
   static G4Material* tubeWallMaterial;
   static G4Material* tubeInnerGas;
   static G4Material* strawWallMaterial;

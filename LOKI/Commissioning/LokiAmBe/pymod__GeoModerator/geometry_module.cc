@@ -22,8 +22,8 @@ GeoModerator::GeoModerator()
   : GeoConstructBase("LokiAmBe/GeoModerator")
 {
   // HDPE cylinder with a vertical axis (y), centred at the origin; the source is at the origin
-  addParameterDouble("moderator_radius_cm", 11.5);
-  addParameterDouble("moderator_height_cm", 27.0);
+  addParameterDouble("moderator_radius_cm", 13.0);
+  addParameterDouble("moderator_height_cm", 26.0);
   addParameterString("moderator_material", "Polyethylene_CH2.ncmat;density=0.95gcm3");
   // stainless steel source capsule around the origin (0: none)
   addParameterDouble("capsule_radius_cm", 1.0);

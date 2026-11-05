@@ -4,8 +4,7 @@ import numpy as np
 
 def launch(geo, extra_generators=None, user_data=None):
     """The LOKI simulation with the geometry geo. extra_generators: event generators of other packages, {event_gen
-    value: function(launcher) returning the generator} (e.g. event_gen=ambe of LokiAmBe); user_data: {key: value}
-    added to the user data (GRIFF metadata) of the output."""
+    value: generator class}; user_data: {key: value} added to the user data (GRIFF metadata) of the output."""
     import G4Launcher
     launcher = G4Launcher()
 
@@ -33,36 +32,24 @@ def launch(geo, extra_generators=None, user_data=None):
     #generator:
     if launcher.getParameterString('event_gen')=='mcpl': #McStas+Geant4 simulation
         import G4MCPLPlugins.MCPLGen as Gen
-        import mcpl
+        from LOKI import McplMetadata
         gen = Gen.create()
         if(launcher.getParameterString('input_file')):
           gen.input_file = launcher.getParameterString('input_file')
-          tmp_myfile = mcpl.MCPLFile(gen.getParameterString('input_file'))
-          for blobkey in tmp_myfile.blobs:
-            try:
-              blobvalue = tmp_myfile.blobs[blobkey].decode("utf-8")
-            except UnicodeDecodeError:
-              continue  # a binary blob (e.g. the configuration stored by the MCPL writer of dgcode): not user data
-            launcher.setUserData(blobkey, str(blobvalue))
-          # the weights of the file: the universal weight (0: each particle has its own, e.g. the McStas weights), and
-          # the normalisation of the McStas weights (stat:sum initial_ray_count: sum of the weights / it = neutrons/s)
-          launcher.setUserData("mcpl_universal_weight", str(tmp_myfile.opt_universalweight))
-          for statkey, statvalue in tmp_myfile.stat_sum.items():
-            launcher.setUserData(f"mcpl_stat_sum_{statkey}", repr(statvalue))
-          launcher.setUserData("mcpl_comments", "\n".join(tmp_myfile.comments))
-          launcher.setUserData("mcpl_source", tmp_myfile.sourcename)
+          for key, value in McplMetadata.user_data(gen.getParameterString('input_file')).items():
+            launcher.setUserData(key, value)
           gen.allow_zero_weight = True  # McStas writes particles of weight 0 too
 
-          from LOKI import McplMetadata
           mcplMeta = McplMetadata.read(gen.getParameterString('input_file'))
           #sample to MCPL plane distance: from the instrument file in the header (0.2 m if it is not there, older files)
           gen.dz_meter = mcplMeta.plane_distance_m if mcplMeta.plane_distance_m is not None else 0.2
           if mcplMeta.output == 'rear': #the McStas beamstop (at the rear bank) has already removed its neutrons
             def checkMcStasRearSettings():
               geometry = launcher.getGeo()
-              for mcstasName, geoName in (('reardet', 'rear_detector_distance_m'), ('beamstop', 'beamstop_id')):
+              for mcstasName, geoName, getValue in (('reardet', 'rear_detector_distance_m', geometry.getParameterDouble),
+                                                    ('beamstop', 'beamstop_id', geometry.getParameterInt)):
                 mcstasValue = mcplMeta.parameter(mcstasName)
-                geoValue = geometry.getParameterDouble(geoName) if geoName.endswith('_m') else geometry.getParameterInt(geoName)
+                geoValue = getValue(geoName)
                 if mcstasValue is not None and mcstasValue != geoValue:
                   print(f"LOKI Launcher WARNING: {geoName}={geoValue}, but the McStas simulation of the MCPL file used {mcstasName}={mcstasValue}")
             launcher.addPrePreInitHook(checkMcStasRearSettings)
@@ -106,7 +93,7 @@ def launch(geo, extra_generators=None, user_data=None):
         from  LOKI.IsoThetaGen import IsoThetaGen as Gen
         gen = Gen()
     elif extra_generators and launcher.getParameterString('event_gen') in extra_generators:
-        gen = extra_generators[launcher.getParameterString('event_gen')](launcher)
+        gen = extra_generators[launcher.getParameterString('event_gen')]()
     else:
         import G4StdGenerators.FlexGen as Gen
         gen = Gen.create()
@@ -126,14 +113,10 @@ def launch(geo, extra_generators=None, user_data=None):
       launcher.setUserData("analysis_straw_pixel_number", str(launcher.getParameterInt('analysis_straw_pixel_number')))
       launcher.setUserData("rear_detector_distance_m", str(launcher.getGeo().getParameterDouble("rear_detector_distance_m")))
       # the bank placements (also written to the detection files of the analysis, checked by the LokiMantid scripts)
-      bankCalibration = launcher.getGeo().getParameterString("bank_calibration")
-      launcher.setUserData("bank_calibration", bankCalibration)
-      # the text of the calibration: the analysis uses it, so that it has the placements of the simulation even if the
-      # calibration file changes or is not there
-      # banks moved from their calibrated positions (bank_shifts_mm): the recorded text has the shifted placements
-      bankShifts = launcher.getGeo().getParameterString("bank_shifts_mm") if launcher.getGeo().hasParameterString("bank_shifts_mm") else ""
-      launcher.setUserData("bank_shifts_mm", bankShifts)
-      launcher.setUserData("bank_calibration_text", LokiAim.bankCalibrationText(bankCalibration, bankShifts))
+      bankPlacement = LokiAim.bankPlacementUserData(launcher.getGeo())
+      for key, value in bankPlacement.items():
+        launcher.setUserData(key, value)
+      bankCalibration = bankPlacement["bank_calibration"]
       if bankCalibration != LokiAim.NOMINAL_BANK_CALIBRATION:
         print(f"NOTE: bank_calibration={bankCalibration}: the LokiMantid scripts (Mantid instrument definition) assume "
               f"the nominal geometry; use bank_calibration={LokiAim.NOMINAL_BANK_CALIBRATION} for simulations to be "

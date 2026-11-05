@@ -4,7 +4,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <map>
 #include <numeric>
 #include "G4Materials/NamedMaterialProvider.hh"
 
@@ -14,7 +13,7 @@ class CalibMasks {
 public:
   /// The REAR CALIBRATION MASK PLATE of LOKI (drawing SI-7615-993, ESS-5767239): a 2 mm aluminium sheet, its front face
   /// painted with Gd2O3 paint except ten 6 mm bare slits; the face 1742 mm tall and 996 mm wide, the paint between its side
-  /// walls (992 mm). Lengths in mm.
+  /// walls (992 mm); mounted with its lips on the front of the bank's side plates, the face 51 mm deeper. Lengths in mm.
   class RearPlate {
   public:
     static constexpr double thickness = 2.0;

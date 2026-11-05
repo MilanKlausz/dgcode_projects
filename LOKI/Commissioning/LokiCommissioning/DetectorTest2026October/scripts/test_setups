@@ -17,22 +17,23 @@ import sys
 import DetectorTest2026October.Setups as S
 name, args = S.expand(['-n10', 'setup=C', 'z_meters=1.5', '--mode=REDUCED'])
 pars = dict(a.split('=', 1) for a in args if '=' in a and not a.startswith('-'))
-ok = name == 'C' and pars['z_meters'] == '1.5' and args.count('z_meters=1.5') == 1 and '-n10' in args and '--mode=REDUCED' in args
-print(f"  {'OK' if ok else 'FAILED'}: setup C with z_meters=1.5 on the command line")
+replaced = name == 'C' and pars['z_meters'] == '1.5' and args.count('z_meters=1.5') == 1 and '-n10' in args and '--mode=REDUCED' in args
+print(f"  {'OK' if replaced else 'FAILED'}: setup C with z_meters=1.5 on the command line")
 try:
     S.parameters('X')
-    ok2 = False
+    rejected = False
 except ValueError as e:
-    ok2 = 'unknown setup' in str(e)
-print(f"  {'OK' if ok2 else 'FAILED'}: unknown setup -> error")
-sys.exit(0 if ok and ok2 else 1)
+    rejected = 'unknown setup' in str(e)
+print(f"  {'OK' if rejected else 'FAILED'}: unknown setup -> error")
+sys.exit(0 if replaced and rejected else 1)
 PYEOF
 [ $? == 0 ] || exit 1
 for s in C E; do
     run sim$s sb_detectortest2026october_sim setup=$s -n20 -s123 -o sim$s
     grep -h "DetectorTest2026October: setup\|shifted from\|absorber plate in bank\|absorber strip in bank\|AmBeSourceGen: ambe" sim$s.log | sed 's/(setups.toml [0-9a-f]*)/(setups.toml <checksum>)/'
-    echo "  overlap checks: $(grep -c 'Checking overlaps' sim$s.log), not OK: $(grep 'Checking overlaps' sim$s.log | grep -vc 'OK!')"
-    [ $(grep 'Checking overlaps' sim$s.log | grep -vc 'OK!') == 0 ] || exit 1
+    notok=$(grep 'Checking overlaps' sim$s.log | grep -vc 'OK!')
+    echo "  overlap checks: $(grep -c 'Checking overlaps' sim$s.log), not OK: $notok"
+    [ $notok == 0 ] || exit 1
     run ana$s sb_loki_ana sim$s.griff
     python3 - $s <<'PYEOF'
 import sys

@@ -226,6 +226,18 @@ std::map<int, std::array<double,3>> BankCalibration::parseShifts(const std::stri
   return out;
 }
 
+namespace {
+  // a bank line of a calibration file, in full precision
+  std::string bankLine(const int bankId, const BankCalibration::Bank& bank) {
+    char buffer[512];
+    std::snprintf(buffer, sizeof(buffer), "bank %d %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g", bankId,
+                  bank.frontFaceCentre[0] / Units::mm, bank.frontFaceCentre[1] / Units::mm, bank.frontFaceCentre[2] / Units::mm,
+                  bank.alongTubes[0], bank.alongTubes[1], bank.alongTubes[2], bank.acrossTubes[0], bank.acrossTubes[1],
+                  bank.acrossTubes[2], bank.layerNormal[0], bank.layerNormal[1], bank.layerNormal[2]);
+    return buffer;
+  }
+}
+
 BankCalibration BankCalibration::shifted(const std::string& shifts) const {
   const auto parsed = parseShifts(shifts);
   if (parsed.empty())
@@ -242,25 +254,14 @@ BankCalibration BankCalibration::shifted(const std::string& shifts) const {
   std::istringstream lines(m_text);
   std::ostringstream text;
   std::string line;
-  bool noted = false;
   while (std::getline(lines, line)) {
     std::istringstream words(line);
     std::string key;
     int bankId = -1;
-    if (words >> key && key == "bank" && words >> bankId && parsed.count(bankId)) {
-      const Bank& bank = out.m_banks[bankId];
-      char buffer[512];
-      std::snprintf(buffer, sizeof(buffer), "bank %d %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g", bankId,
-                    bank.frontFaceCentre[0] / Units::mm, bank.frontFaceCentre[1] / Units::mm, bank.frontFaceCentre[2] / Units::mm,
-                    bank.alongTubes[0], bank.alongTubes[1], bank.alongTubes[2], bank.acrossTubes[0], bank.acrossTubes[1],
-                    bank.acrossTubes[2], bank.layerNormal[0], bank.layerNormal[1], bank.layerNormal[2]);
-      line = buffer;
-    }
-    else if (!noted && key == "name") {
-      text << line << "\n# banks shifted from this calibration (bank_shifts_mm): " << shifts << "\n";
-      noted = true;
-      continue;
-    }
+    if (words >> key && key == "bank" && words >> bankId && parsed.count(bankId))
+      line = bankLine(bankId, out.m_banks[bankId]);
+    else if (key == "name")
+      line += "\n# banks shifted from this calibration (bank_shifts_mm): " + shifts;
     text << line << "\n";
   }
   out.m_text = text.str();

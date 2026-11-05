@@ -21,14 +21,14 @@
 
 namespace {
   // segments in the volumes whose (logical) name starts with a prefix, e.g. the parts B4CPanel-<drawing>.<k> of a panel
+  bool startsWith(const std::string& name, const char* prefix) { return name.rfind(prefix, 0) == 0; }
   class SegmentFilter_VolumePrefix : public GriffAnaUtils::ISegmentFilter {
   public:
     explicit SegmentFilter_VolumePrefix(const std::string& prefix) : m_prefix(prefix) {}
-    bool filter(const GriffDataRead::Segment* segment) const override { return segment->volumeName().rfind(m_prefix, 0) == 0; }
+    bool filter(const GriffDataRead::Segment* segment) const override { return startsWith(segment->volumeName(), m_prefix.c_str()); }
   private:
     std::string m_prefix;
   };
-  bool startsWith(const std::string& name, const char* prefix) { return name.rfind(prefix, 0) == 0; }
 }
 
 int main(int argc, char**argv) {
@@ -57,6 +57,10 @@ int main(int argc, char**argv) {
 
   setup->dump();
 
+  if (!userData.count("bank_shifts_mm"))
+    printf("WARNING: GRIFF file from before the CAD volume names (no bank_shifts_mm in the user data): absorbers, tube "
+           "walls and panels are not recognised, so the results that depend on them are empty.\n");
+
   DetHitApproximation hit(&dr,1.2*Units::cm,120*Units::keV,"CountingGas" ); // defined for He3 gas
 
   GriffAnaUtils::SegmentIterator segments_gas(&dr);
@@ -65,7 +69,6 @@ int main(int argc, char**argv) {
   GriffAnaUtils::TrackIterator primary_neutrons(&dr);
   primary_neutrons.addFilter(new GriffAnaUtils::TrackFilter_Primary());
   primary_neutrons.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
-
 
   GriffAnaUtils::SegmentIterator segments_TubeWall(&dr);
   segments_TubeWall.addFilter(new GriffAnaUtils::SegmentFilter_Volume(BcsTube::tubeWallName.c_str()));
@@ -76,7 +79,6 @@ int main(int argc, char**argv) {
   segments_B4CPanel.addFilter(new SegmentFilter_VolumePrefix("B4CPanel-"));
   segments_B4CPanel.addFilter(new GriffAnaUtils::TrackFilter_Primary());
   segments_B4CPanel.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
-
 
   SimpleHists::HistCollection hc;
 
@@ -212,6 +214,7 @@ int main(int argc, char**argv) {
              "instrument definition) assume the nominal geometry (%s): its pixel positions in Mantid would be wrong "
              "(see LokiMantid/python/workspaceCreator.py).\n", bankCalibrationName.c_str(), BankCalibration::nominalName.c_str());
     // MCPL input without a universal weight (e.g. the McStas weights): the detection events keep the weights
+    // (biased AmBe runs: the histograms use the weights, detectionEvents.mcpl stores weight 1)
     const bool weighted = gen.getName()=="G4MCPLPlugins/MCPLGen"
       && (!userData.count("mcpl_universal_weight") || std::stod(userData["mcpl_universal_weight"]) == 0.0);
     detectionFile = new DetectionFileCreator("detectionEvents.mcpl", userData, weighted);
@@ -223,7 +226,7 @@ int main(int argc, char**argv) {
   auto h_neutron_pixel_hit = hc.book2D("Sum weight of hits in pixels (hit)", strawPixelNumber, 0, strawPixelNumber, numberOfStraws, 0, numberOfStraws, "h_neutron_pixel_hit");
        h_neutron_pixel_hit->setXLabel("Pixel ID along straw");
        h_neutron_pixel_hit->setYLabel("Straw ID");
-  // the sum of the squared weights (the variances of h_neutron_pixel_hit), for the HDF5 output (sb_loki_writehdf5); its
+  // the sum of the squared weights (the variances of h_neutron_pixel_hit), for the HDF5 output (sb_lokioutput_writehdf5); its
   // comment records the geometry of the pixel ids (also keeps runs of different geometries from being merged)
   auto h_neutron_pixel_hit_w2 = hc.book2D("Sum of squared weights of hits in pixels (hit)", strawPixelNumber, 0, strawPixelNumber, numberOfStraws, 0, numberOfStraws, "h_neutron_pixel_hit_w2");
        h_neutron_pixel_hit_w2->setXLabel("Pixel ID along straw");

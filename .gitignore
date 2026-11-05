@@ -12,8 +12,6 @@
 #ignore any build output and user files:
 /simplebuild_cache/
 *.orig
-.bld
-install/*
 
 #Extra protection against adding in build output created by custom user commands:
 *.so

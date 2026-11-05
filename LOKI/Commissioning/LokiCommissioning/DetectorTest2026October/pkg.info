@@ -11,5 +11,7 @@ simulation parameters (data/setups.toml, python/Setups.py):
   sb_detectortest2026october_simanachain <dir> setup=C [...]
 
 Further parameters on the command line replace those of the setup.
+The source is in LokiAmBe, the counts per pixel go to a file with
+sb_lokioutput_writehdf5 (LokiOutput).
 
 Primary author: milan.klausz@ess.eu

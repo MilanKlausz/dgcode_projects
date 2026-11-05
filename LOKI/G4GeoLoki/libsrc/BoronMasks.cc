@@ -120,8 +120,10 @@ std::string BoronMasks::getDrawing(const int bankId, const int maskId) {
   case 6:
   case 8:
     return frontVerticalDrawings[maskId];
-  default:
+  case 7:
     return frontBottomDrawings[maskId];
+  default:
+    return "";
   }
 }
 

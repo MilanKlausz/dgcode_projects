@@ -35,7 +35,7 @@ cos_normal = np.select([surface == 0, surface == 1, surface == 2],
 cos_normal = np.clip(cos_normal, 0.0, 1.0)
 edges = np.logspace(-5, np.log10(12e6), int(round(10 * (np.log10(12e6) + 5))) + 1)  # 10 bins per decade [eV]
 spectra = [np.histogram(E[surface == s], bins=edges)[0] / nsrc for s in range(3)]
-groups = [("thermal < 0.5 eV", 0, 0.5), ("epithermal 0.5 eV - 100 keV", 0.5, 1e5), ("fast > 100 keV", 1e5, 1e9)]
+groups = [("thermal", 0, 0.5), ("epithermal", 0.5, 1e5), ("fast", 1e5, 1e9)]  # below 0.5 eV, up to 100 keV, above
 angular_groups = [(0.0, 0.5), (0.5, 1e5), (1e5, 1e6), (1e6, 3e6), (3e6, 1e9)]  # [eV]
 cos_bins = 20
 
@@ -46,7 +46,7 @@ lines = ["# Neutrons leaving a cylindrical HDPE moderator (vertical axis) with a
          f"# {int(nsrc)} source neutrons; neutrons per source neutron through the side, top, bottom:"]
 for s in range(3):
     m = surface == s
-    parts = ", ".join(f"{name.split()[0]} {np.sum(m & (E >= lo) & (E < hi)) / nsrc:.4f}" for name, lo, hi in groups)
+    parts = ", ".join(f"{name} {np.sum(m & (E >= lo) & (E < hi)) / nsrc:.4f}" for name, lo, hi in groups)
     lines.append(f"#   {names[s]}: {m.sum() / nsrc:.4f} ({parts})")
 lines.append("# Spectrum lines: lower and upper bin edge [eV], neutrons per source neutron in the bin through the side, the top")
 lines.append("# and the bottom.")
@@ -63,5 +63,5 @@ for s in range(3):
         lines.append(f"angular {names[s]} {lo:g} {hi:g} " + " ".join(f"{v:.5f}" for v in h / h.sum()))
 with open(out, "w") as fo:
     fo.write("\n".join(lines) + "\n")
-print("\n".join(lines[4:9]))
+print("\n".join(lines[3:8]))
 print("written", out, "from", len(files), "file(s)")

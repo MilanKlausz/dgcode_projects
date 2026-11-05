@@ -158,7 +158,6 @@ std::array<double,3> BcsBanks::getBoronMaskPositionInBankFrame(const int bankId,
           getBoronMaskPosition(bankId, maskId, 0)};
 }
 
-
 BcsBanks::PlacementInBank BcsBanks::getTriangularBoronMaskPlacementInBankFrame(const int maskId) {
   const int bankId = BoronMasks::getBankIdOfTriangularMask(maskId); // 5 or 7
   const double cutDir = BoronMasks::getCutDirOfTriangularMask(maskId, 1); // +1 (bank 5) or -1 (bank 7)

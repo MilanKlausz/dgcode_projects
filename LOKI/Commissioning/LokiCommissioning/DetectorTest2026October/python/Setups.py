@@ -4,6 +4,7 @@ The parameters of a setup: those of [common], then absorber_strips and absorber_
 detector in that setup, joined with ';' in the order of the file), then the parameters of the setup itself (they
 replace the common ones).
 """
+import functools
 import hashlib
 import tomllib
 
@@ -14,57 +15,50 @@ ABSORBER_PARAMETERS = ('absorber_strips', 'absorber_plates')
 SETUP_INFO = ('runs', 'description')  # setup entries that are not simulation parameters
 
 
-def catalogue_path(path=None):
-    return path or FindData('DetectorTest2026October', CATALOGUE)
+def catalogue_path():
+    return FindData('DetectorTest2026October', CATALOGUE)
 
 
-def load(path=None):
+@functools.cache
+def load():
     """The catalogue (checked)."""
-    with open(catalogue_path(path), 'rb') as f:
+    with open(catalogue_path(), 'rb') as f:
         catalogue = tomllib.load(f)
     setups = catalogue.get('setups', {})
     if not setups:
         raise ValueError(f'{CATALOGUE}: no setups')
     for parameter in ABSORBER_PARAMETERS:
         for item in catalogue.get(parameter, []):
-            unknown = set(item.get('setups', [])) - set(setups)
-            if unknown or 'value' not in item:
-                raise ValueError(f'{CATALOGUE}: {parameter} item {item.get("name")!r}: no value or unknown setups {sorted(unknown)}')
+            if 'value' not in item or 'setups' not in item or set(item['setups']) - set(setups):
+                raise ValueError(f'{CATALOGUE}: {parameter} item {item.get("name")!r}: no value, or wrong setups')
     return catalogue
 
 
-def checksum(path=None):
+def checksum():
     """The first 12 hex digits of the SHA-256 of the catalogue file (recorded with the simulation)."""
-    with open(catalogue_path(path), 'rb') as f:
+    with open(catalogue_path(), 'rb') as f:
         return hashlib.sha256(f.read()).hexdigest()[:12]
 
 
-def names(catalogue=None):
-    return list((catalogue or load())['setups'])
+def names():
+    return list(load()['setups'])
 
 
-def _text(value):
-    return value if isinstance(value, str) else repr(value)
-
-
-def parameters(name, catalogue=None):
+def parameters(name):
     """{parameter: value} (strings) of the setup, in the order of the catalogue."""
-    catalogue = catalogue or load()
+    catalogue = load()
     if name not in catalogue['setups']:
         raise ValueError(f'unknown setup {name!r} (setups: {", ".join(catalogue["setups"])})')
-    out = {key: _text(value) for key, value in catalogue.get('common', {}).items()}
+    out = {key: str(value) for key, value in catalogue.get('common', {}).items()}
     for parameter in ABSORBER_PARAMETERS:
         items = [item['value'] for item in catalogue.get(parameter, []) if name in item['setups']]
         if items:
             out[parameter] = ';'.join(items)
-    for key, value in catalogue['setups'][name].items():
-        if key not in SETUP_INFO:
-            out.pop(key, None)  # a setup parameter replaces a common one (and takes the place after the common ones)
-            out[key] = _text(value)
+    out.update({key: str(value) for key, value in catalogue['setups'][name].items() if key not in SETUP_INFO})
     return out
 
 
-def expand(args, catalogue=None):
+def expand(args):
     """(setup name or None, args): setup=NAME in the command line arguments replaced by the parameters of the setup
     (key=value); a parameter given on the command line replaces the one of the setup."""
     setups = [a for a in args if a.startswith('setup=')]
@@ -74,5 +68,5 @@ def expand(args, catalogue=None):
         raise ValueError('setup= given more than once')
     name = setups[0][len('setup='):]
     given = {a.split('=', 1)[0] for a in args if '=' in a and not a.startswith('-')}
-    expanded = [f'{key}={value}' for key, value in parameters(name, catalogue).items() if key not in given]
+    expanded = [f'{key}={value}' for key, value in parameters(name).items() if key not in given]
     return name, expanded + [a for a in args if a != setups[0]]

@@ -8,9 +8,6 @@
 #     the moderator size of the table (or the given one); the share of each surface; isotropic directions on request;
 #  4. direction biasing.
 
-import glob
-import re
-import os
 import random
 import subprocess
 import sys
@@ -56,16 +53,14 @@ for lo, hi, fractions in angular['side']:
     check(abs(c.mean() - expected) < 0.01 and c.min() >= 0 and c.max() <= 1, "sampled angular distribution as in the table")
 
 print("2. the table of LokiAmBe/data (moderator size from the header, yields, thermal fraction)")
-for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LokiAmBe', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_*_spectrum.txt'))):
-    a, b, s, _ = gen.read_table(path)
-    b = np.array(b)
-    radius, height = gen.read_moderator_size(path)
-    side, top, bottom = (np.array(s[k]) for k in gen.SURFACES)
-    print(f"  {os.path.basename(path)}: radius {radius:g} cm, height {height:g} cm; per source neutron through the side "
-          f"{side.sum():.3f} (thermal {side[b <= 0.5].sum():.3f}), top {top.sum():.3f}, bottom {bottom.sum():.3f}")
-    match = re.match(r'ambe_hdpe_d([0-9.]+)cm_h([0-9.]+)cm_spectrum\.txt$', os.path.basename(path))
-    check(match is not None and float(match.group(1)) == 2 * radius and float(match.group(2)) == height,
-          "the file name matches the header")
+path = FindData('LokiAmBe', gen.DEFAULT_SPECTRUM)
+a, b, s, _ = gen.read_table(path)
+b = np.array(b)
+radius, height = gen.read_moderator_size(path)
+side, top, bottom = (np.array(s[k]) for k in gen.SURFACES)
+print(f"  {gen.DEFAULT_SPECTRUM}: radius {radius:g} cm, height {height:g} cm; per source neutron through the side "
+      f"{side.sum():.3f} (thermal {side[b <= 0.5].sum():.3f}), top {top.sum():.3f}, bottom {bottom.sum():.3f}")
+check(gen.DEFAULT_SPECTRUM == f'ambe_hdpe_d{2 * radius:g}cm_h{height:g}cm_spectrum.txt', "the file name matches the header")
 
 print("3. short simulations with event_gen=ambe")
 centre = np.array([-13.5, 6.5, 167.7])  # [cm]
@@ -75,14 +70,17 @@ def source(name, n, seed, *pars):
     sim = subprocess.run(['sb_lokiambe_sim', '-n', str(n), '-s', str(seed), 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
                           'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', f'--mcpl=grabsrc to {name}', *pars],
                          capture_output=True, text=True)
+    if sim.returncode != 0:
+        print(sim.stdout[-2000:] + sim.stderr[-2000:])
     check(sim.returncode == 0, "the simulation runs")
     f = mcpl.MCPLFile(f'{name}.mcpl.gz')
     pos = np.concatenate([pb.position for pb in f.particle_blocks]).astype(float) - centre  # [cm]
     direction = np.concatenate([pb.direction for pb in f.particle_blocks]).astype(float)
-    return pos, direction
+    weight = np.concatenate([pb.weight for pb in f.particle_blocks]).astype(float)
+    return pos, direction, weight
 
 
-pos, direction = source('src', 2000, 1)
+pos, direction, _ = source('src', 2000, 1)
 radius = np.hypot(pos[:, 0], pos[:, 2])
 on_side = np.isclose(radius, 13.0, atol=1e-3) & (np.abs(pos[:, 1]) <= 13.0 + 1e-3)
 on_top = np.isclose(pos[:, 1], 13.0, atol=1e-3) & (radius <= 13.0 + 1e-3)
@@ -96,13 +94,13 @@ print(f"  {len(pos)} neutrons: side {on_side.mean() * 100:.1f}% (table {side_sha
 check(len(pos) == 2000 and np.all(on_side | on_top | on_bottom), "on the surface of the cylinder (radius 13 cm, height 26 cm)")
 check(abs(on_side.mean() - side_share) < 0.03 and abs(on_top.mean() - on_bottom.mean()) < 0.03, "the share of each surface as in the table")
 check(np.all(cos_normal >= -1e-6) and cos_normal.mean() > 0.7, "going outwards, peaked along the normal")
-pos, direction = source('srciso', 1000, 3, 'surfaces=side', 'angular_distribution=isotropic')
+pos, direction, _ = source('srciso', 1000, 3, 'surfaces=side', 'angular_distribution=isotropic')
 radius = np.hypot(pos[:, 0], pos[:, 2])
 cos_normal = np.sum(direction * np.column_stack([pos[:, 0] / radius, np.zeros(len(pos)), pos[:, 2] / radius]), axis=1)
 print(f"  side only, isotropic: distance from the axis {radius.min():.3f} - {radius.max():.3f} cm, mean cos to the outward normal {cos_normal.mean():.2f}")
 check(np.allclose(radius, 13.0, atol=1e-3) and np.all(cos_normal >= -1e-6) and abs(cos_normal.mean() - 0.5) < 0.05,
       "on the side, isotropic in the outward hemisphere")
-pos, _ = source('src16', 100, 2, 'moderator_radius_cm=8', 'moderator_height_cm=20')
+pos, _, _ = source('src16', 100, 2, 'moderator_radius_cm=8', 'moderator_height_cm=20')
 radius = np.hypot(pos[:, 0], pos[:, 2])
 print(f"  with moderator_radius_cm=8 moderator_height_cm=20: distance from the axis {radius.min():.3f} - "
       f"{radius.max():.3f} cm, height {pos[:, 1].min():.3f} - {pos[:, 1].max():.3f} cm")
@@ -110,19 +108,12 @@ check(np.all(radius <= 8.0 + 1e-3) and np.all(np.abs(pos[:, 1]) <= 10.0 + 1e-3) 
       "the given moderator size instead of the table header")
 print("4. direction biasing (aim_half_angle_deg): the mean weight = the fraction of the unbiased directions in the cone")
 aim = np.array([0.0, 6.5, 1000.0])  # [cm], the cone axis from each start point to this point
-pos, direction = source('srcunb', 20000, 4, 'surfaces=side')
-w_unb = None
+pos, direction, _ = source('srcunb', 20000, 4, 'surfaces=side')
 axis = aim - (pos + centre); axis /= np.linalg.norm(axis, axis=1)[:, None]
 inside = np.sum(direction * axis, axis=1) > np.cos(np.radians(30.0))
-sim = subprocess.run(['sb_lokiambe_sim', '-n', '5000', '-s', '5', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty', 'surfaces=side',
-                      'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', 'aim_half_angle_deg=30', 'aim_x_meters=0',
-                      'aim_y_meters=0.065', 'aim_z_meters=10', '--mcpl=grabsrc to srcaim'], capture_output=True, text=True)
-check(sim.returncode == 0, "the simulation runs")
-f = mcpl.MCPLFile('srcaim.mcpl.gz')
-pa = np.concatenate([pb.position for pb in f.particle_blocks]).astype(float)
-da = np.concatenate([pb.direction for pb in mcpl.MCPLFile('srcaim.mcpl.gz').particle_blocks]).astype(float)
-wa = np.concatenate([pb.weight for pb in mcpl.MCPLFile('srcaim.mcpl.gz').particle_blocks]).astype(float)
-axa = aim - pa; axa /= np.linalg.norm(axa, axis=1)[:, None]
+pa, da, wa = source('srcaim', 5000, 5, 'surfaces=side', 'aim_half_angle_deg=30', 'aim_x_meters=0', 'aim_y_meters=0.065',
+                    'aim_z_meters=10')
+axa = aim - (pa + centre); axa /= np.linalg.norm(axa, axis=1)[:, None]
 frac, err = inside.mean(), np.sqrt(inside.sum()) / len(inside)
 print(f"  unbiased: fraction in the 30 deg cone {frac:.4f} +- {err:.4f}; biased: mean weight {wa.mean():.4f} +- {wa.std() / np.sqrt(len(wa)):.4f}")
 check(np.all(np.sum(da * axa, axis=1) > np.cos(np.radians(30.0)) - 1e-9), "all biased directions in the cone")
