@@ -1,0 +1,198 @@
+A: runs 345, 346, 347, 348: first source position: between the front banks, next to bank 8
+B: runs 349: source moved to the middle, between banks 6 and 8
+C: runs 350, 351, 352, 353, 354, 355, 356, 357, 358: source on a stand in the front panel opening, under bank 5; new sheets on banks 6 and 8
+D: runs 359: source in front of banks 2 and 4, low; bank 2 sheet replaced
+E: runs 360: source in front of the rear bank (bank 0), for its calibration mask
+F: runs 361, 362: source between banks 2 and 4, behind them
+G: runs 363: source between banks 6 and 8
+H: runs 365: source back in front of the rear bank (as in setup E)
+== setup A
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,569.0,369.3,3290.9,469.8,220.0,3298.2,38.2,1;2,469.6,219.5,3299.9,180.5,-222.0,3377.5,38.2,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1;8,-328.3,677.1,1639.0,-322.3,484.1,1749.6,55,1;6,327.3,612.9,1639.9,321.5,419.8,1750.4,55,1
+x_meters=-0.153
+y_meters=0.064
+z_meters=1.70
+== setup B
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,569.0,369.3,3290.9,469.8,220.0,3298.2,38.2,1;2,469.6,219.5,3299.9,180.5,-222.0,3377.5,38.2,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1;8,-328.3,677.1,1639.0,-322.3,484.1,1749.6,55,1;6,327.3,612.9,1639.9,321.5,419.8,1750.4,55,1
+x_meters=-0.012
+y_meters=0.067
+z_meters=1.70
+== setup C
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,569.0,369.3,3290.9,469.8,220.0,3298.2,38.2,1;2,469.6,219.5,3299.9,180.5,-222.0,3377.5,38.2,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1;8,-374.9,299.1,1585.2,-375.5,589.1,1585.5,90.0,1;6,344.9,360.0,1589.4,344.9,541.8,1589.7,65.0,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1
+x_meters=-0.03
+y_meters=0.065
+z_meters=1.30
+== setup D
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,602.0,291.0,3288.6,483.5,149.3,3297.3,45,1;2,483.2,148.9,3298.9,180.5,-218.1,3377.5,45,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1;8,-374.9,299.1,1585.2,-375.5,589.1,1585.5,90.0,1;6,344.9,360.0,1589.4,344.9,541.8,1589.7,65.0,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1
+x_meters=0.0
+y_meters=-0.07
+z_meters=3.20
+== setup E
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,602.0,291.0,3288.6,483.5,149.3,3297.3,45,1;2,483.2,148.9,3298.9,180.5,-218.1,3377.5,45,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1;8,-374.9,299.1,1585.2,-375.5,589.1,1585.5,90.0,1;6,344.9,360.0,1589.4,344.9,541.8,1589.7,65.0,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1
+x_meters=0.0
+y_meters=-0.365
+z_meters=9.7654
+== setup F
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,602.0,291.0,3288.6,483.5,149.3,3297.3,45,1;2,483.2,148.9,3298.9,180.5,-218.1,3377.5,45,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1;8,-374.9,299.1,1585.2,-375.5,589.1,1585.5,90.0,1;6,344.9,360.0,1589.4,344.9,541.8,1589.7,65.0,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1
+x_meters=-0.02
+y_meters=-0.233
+z_meters=4.07
+== setup G
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,602.0,291.0,3288.6,483.5,149.3,3297.3,45,1;2,483.2,148.9,3298.9,180.5,-218.1,3377.5,45,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1;8,-374.9,299.1,1585.2,-375.5,589.1,1585.5,90.0,1;6,344.9,360.0,1589.4,344.9,541.8,1589.7,65.0,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1
+x_meters=-0.008
+y_meters=0.065
+z_meters=1.74
+== setup H
+event_gen=ambe
+spectrum_file=ambe_hdpe_d26cm_h26cm_spectrum.txt
+max_energy_eV=1e9
+rear_detector_distance_m=9.985615
+bank_calibration=2026-September-SAM-606
+bank_shifts_mm=2:0,0,570;4:0,0,570
+boron_mask_banks=all
+with_triangular_masks=no
+boron_mask_exclude=0:1,3,4,5;3:5,6,7;6:4,5,6,7;7:4,5,6,7;8:4,5,6,7
+with_rear_calibration_mask=yes
+calibration_paint_thickness_mm=0.30
+vacuum_tank_wall_mm=25
+world_material=G4_AIR
+pack_fill_material=G4_AIR
+analysis_straw_pixel_number=512
+absorber_strips=1,-124.8,695.6,2846.6,-593.3,262.6,2888.4,61.2,1;2,602.0,291.0,3288.6,483.5,149.3,3297.3,45,1;2,483.2,148.9,3298.9,180.5,-218.1,3377.5,45,1,1;3,-566.8,-258.6,2888.9,-2.3,-691.2,2846.4,38,1;4,-208.3,-362.0,3328.9,-537.7,376.3,3302.7,55,1;8,-374.9,299.1,1585.2,-375.5,589.1,1585.5,90.0,1;6,344.9,360.0,1589.4,344.9,541.8,1589.7,65.0,1
+absorber_plates=7,267.7,-399.1,1402.1,530.4,-355.0,1259.9,70,1,0.5,1
+x_meters=0.0
+y_meters=-0.365
+z_meters=9.7654
+  OK: setup C with z_meters=1.5 on the command line
+  OK: unknown setup -> error
+DetectorTest2026October: setup C (setups.toml <checksum>)
+GeoBCSBanks: bank 2 shifted from its bank_calibration position by (0, 0, 570) mm
+GeoBCSBanks: bank 4 shifted from its bank_calibration position by (0, 0, 570) mm
+GeoBCSBanks: absorber strip in bank 2: 533.407 x 38.2 x 1 mm, depth -148.9 to -92.7 mm in the bank frame (tilted by 6.0 deg from the bank front)
+GeoBCSBanks: absorber plate in bank 7 on pack 0 (parallel to the packs, 0.5 mm from its face): 299.981 x 70 x 1 mm, turned by -151.3 deg from the tube direction
+# banks shifted from this calibration (bank_shifts_mm): 2:0,0,570;4:0,0,570
+AmBeSourceGen: ambe_hdpe_d26cm_h26cm_spectrum.txt: 0.4034 neutrons per source neutron in 0 - 1e+09 eV leaving through the generated surfaces (side 0.2948, top 0.0543, bottom 0.0543); one generated neutron = 2.4791 source neutrons; directions: moderator; moderator radius 13 cm, height 26 cm
+  overlap checks: 6580, not OK: 0
+GriffDataReader opened file simC.griff
+  OK: setup C and the bank shifts in the GRIFF metadata
+DetectorTest2026October: setup E (setups.toml <checksum>)
+GeoBCSBanks: bank 2 shifted from its bank_calibration position by (0, 0, 570) mm
+GeoBCSBanks: bank 4 shifted from its bank_calibration position by (0, 0, 570) mm
+GeoBCSBanks: absorber strip in bank 2: 482.177 x 45 x 1 mm, depth -148.9 to -92.7 mm in the bank frame (tilted by 6.7 deg from the bank front)
+GeoBCSBanks: absorber plate in bank 7 on pack 0 (parallel to the packs, 0.5 mm from its face): 299.981 x 70 x 1 mm, turned by -151.3 deg from the tube direction
+# banks shifted from this calibration (bank_shifts_mm): 2:0,0,570;4:0,0,570
+AmBeSourceGen: ambe_hdpe_d26cm_h26cm_spectrum.txt: 0.4034 neutrons per source neutron in 0 - 1e+09 eV leaving through the generated surfaces (side 0.2948, top 0.0543, bottom 0.0543); one generated neutron = 2.4791 source neutrons; directions: moderator; moderator radius 13 cm, height 26 cm
+  overlap checks: 6580, not OK: 0
+GriffDataReader opened file simE.griff
+  OK: setup E and the bank shifts in the GRIFF metadata

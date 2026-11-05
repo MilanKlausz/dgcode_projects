@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# The setups of the detector test (data/setups.toml): the list and the full parameter list of every setup (this
+# reference log pins the parameters of the final simulations of the test); a parameter given on the command line
+# replaces the one of the setup; short simulations of setups C and E with the analysis: the geometry is built (with
+# its overlap checks), and the setup is recorded in the GRIFF metadata.
+
+run() { local name=$1; shift; "$@" > $name.log 2>&1 || { tail -40 $name.log; echo "TEST FAILED: $name"; exit 1; }; }
+set -u
+sb_detectortest2026october_params || exit 1
+for s in $(sb_detectortest2026october_params | cut -d: -f1); do
+    echo "== setup $s"
+    sb_detectortest2026october_params $s || exit 1
+done
+python3 - <<'PYEOF'
+import sys
+import DetectorTest2026October.Setups as S
+name, args = S.expand(['-n10', 'setup=C', 'z_meters=1.5', '--mode=REDUCED'])
+pars = dict(a.split('=', 1) for a in args if '=' in a and not a.startswith('-'))
+ok = name == 'C' and pars['z_meters'] == '1.5' and args.count('z_meters=1.5') == 1 and '-n10' in args and '--mode=REDUCED' in args
+print(f"  {'OK' if ok else 'FAILED'}: setup C with z_meters=1.5 on the command line")
+try:
+    S.parameters('X')
+    ok2 = False
+except ValueError as e:
+    ok2 = 'unknown setup' in str(e)
+print(f"  {'OK' if ok2 else 'FAILED'}: unknown setup -> error")
+sys.exit(0 if ok and ok2 else 1)
+PYEOF
+[ $? == 0 ] || exit 1
+for s in C E; do
+    run sim$s sb_detectortest2026october_sim setup=$s -n20 -s123 -o sim$s
+    grep -h "DetectorTest2026October: setup\|shifted from\|absorber plate in bank\|absorber strip in bank\|AmBeSourceGen: ambe" sim$s.log | sed 's/(setups.toml [0-9a-f]*)/(setups.toml <checksum>)/'
+    echo "  overlap checks: $(grep -c 'Checking overlaps' sim$s.log), not OK: $(grep 'Checking overlaps' sim$s.log | grep -vc 'OK!')"
+    [ $(grep 'Checking overlaps' sim$s.log | grep -vc 'OK!') == 0 ] || exit 1
+    run ana$s sb_loki_ana sim$s.griff
+    python3 - $s <<'PYEOF'
+import sys
+import GriffDataRead
+s = sys.argv[1]
+dr = GriffDataRead.GriffDataReader(f'sim{s}.griff')
+dr.goToFirstEvent()
+ud = dict(dr.setup().userData())
+ok = (ud.get('detector_test_setup') == s and len(ud.get('detector_test_setups_checksum', '')) == 12
+      and ud.get('bank_shifts_mm') == '2:0,0,570;4:0,0,570')
+print(f"  {'OK' if ok else 'FAILED'}: setup {s} and the bank shifts in the GRIFF metadata")
+sys.exit(0 if ok else 1)
+PYEOF
+    [ $? == 0 ] || exit 1
+done

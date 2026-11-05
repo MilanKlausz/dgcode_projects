@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+# The setups of the detector test (data/setups.toml): without arguments the list of setups; with a setup name its
+# simulation parameters, one per line (--line: on one line, for a command line)
+
+import sys
+import shlex
+import DetectorTest2026October.Setups as Setups
+
+args = sys.argv[1:]
+if any(a in ('-h', '--help') for a in args):
+    print('usage: sb_detectortest2026october_params [SETUP ...] [--line]')
+    sys.exit(0)
+catalogue = Setups.load()
+names = [a for a in args if not a.startswith('-')]
+if not names:
+    for name, setup in catalogue['setups'].items():
+        runs = setup.get('runs', [])
+        print(f"{name}: runs {', '.join(str(r) for r in runs)}: {setup.get('description', '')}")
+    sys.exit(0)
+for name in names:
+    pars = [f'{key}={value}' for key, value in Setups.parameters(name, catalogue).items()]
+    print(' '.join(shlex.quote(p) for p in pars) if '--line' in args else '\n'.join(pars))
