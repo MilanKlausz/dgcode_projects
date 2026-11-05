@@ -2,6 +2,7 @@ bcsloki_sans.shist:
   bank_lambda: integral 7.0, mean 7.452, 4.857
   bank_lambda_hit: empty
   h_neutron_pixel_hit: empty
+  h_neutron_pixel_hit_w2: empty
   h_neutron_pixel_rear_hit: empty
   layer_lambda: integral 25.0, mean 7.28, 1.48
   layer_lambda_hit: empty

@@ -220,6 +220,19 @@ int main(int argc, char**argv) {
   auto h_neutron_pixel_hit = hc.book2D("Sum weight of hits in pixels (hit)", strawPixelNumber, 0, strawPixelNumber, numberOfStraws, 0, numberOfStraws, "h_neutron_pixel_hit");
        h_neutron_pixel_hit->setXLabel("Pixel ID along straw");
        h_neutron_pixel_hit->setYLabel("Straw ID");
+  // the sum of the squared weights (the variances of h_neutron_pixel_hit), for the HDF5 output (sb_loki_writehdf5); its
+  // comment records the geometry of the pixel ids (also keeps runs of different geometries from being merged)
+  auto h_neutron_pixel_hit_w2 = hc.book2D("Sum of squared weights of hits in pixels (hit)", strawPixelNumber, 0, strawPixelNumber, numberOfStraws, 0, numberOfStraws, "h_neutron_pixel_hit_w2");
+       h_neutron_pixel_hit_w2->setXLabel("Pixel ID along straw");
+       h_neutron_pixel_hit_w2->setYLabel("Straw ID");
+  {
+    char rearDistanceText[64];
+    snprintf(rearDistanceText, sizeof(rearDistanceText), "%.17g", rearDetectorDistance/Units::m);
+    h_neutron_pixel_hit_w2->setComment("rear_detector_distance_m=" + std::string(rearDistanceText) + "\n"
+                                       + "straw_pixel_number=" + std::to_string(strawPixelNumber) + "\n"
+                                       + "bank_calibration=" + bankCalibrationName + "\n"
+                                       + "bank_calibration_text:\n" + bankCalibration.text());
+  }
 
   const int numberOfStrawsInRearBank = banks->getNumberOfPixels(0) / strawPixelNumber;
   auto h_neutron_pixel_rear_hit = hc.book2D("Sum weight of hits in pixels of rear bank (hit)", strawPixelNumber, 0, strawPixelNumber, numberOfStrawsInRearBank, 0, numberOfStrawsInRearBank, "h_neutron_pixel_rear_hit");
@@ -407,6 +420,7 @@ int main(int argc, char**argv) {
           //h_neutron_pixel_hit_count->fill(pixelId, 1);
           //h_neutron_pixel_hit_weight->fill(pixelId, hit.eventHitWeight());
           h_neutron_pixel_hit->fill(pixelId%strawPixelNumber, std::floor(pixelId/strawPixelNumber), hit.eventHitWeight());
+          h_neutron_pixel_hit_w2->fill(pixelId%strawPixelNumber, std::floor(pixelId/strawPixelNumber), hit.eventHitWeight()*hit.eventHitWeight());
 
 
           h_neutron_bankLayerHitCounter->fill(bankId_conv, layerNumber_conv, hit.eventHitWeight());

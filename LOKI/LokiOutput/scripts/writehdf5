@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+# HDF5 output of a LOKI simulation (the simulated counts per pixel), see LokiOutput/python/Hdf5Output.py
+import LokiOutput.Hdf5Output
+LokiOutput.Hdf5Output.main()

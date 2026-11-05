@@ -61,6 +61,8 @@ jobs:
           #not set -u due to conda
           set -e
           conda install --yes simple-build-dgcode
+          #h5py for LOKI/LokiOutput (extdeps/ExtDep_h5py.cmake):
+          conda install --yes h5py
           echo "sb --version: "$(sb --version)
           echo "geant4 version: "$(geant4-config  --version)
 

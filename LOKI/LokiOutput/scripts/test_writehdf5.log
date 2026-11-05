@@ -1,0 +1,28 @@
+recorded geometry: bank_calibration 2026-September-SAM-606, rear detector distance 5 m, 256 pixels per straw
+Created out.h5: 2 analysis output(s), 20 source events, 8 counts (sum of weights), bank calibration 2026-September-SAM-606, rear detector distance 5 m, 256 pixels per straw
+  OK: sb_lokioutput_writehdf5 of two analysis outputs
+  OK: entry attributes (20 source events: the two outputs added up; weighted; no AmBe normalisation)
+  bank 0: detector numbers 1-401408, layer/tube/straw/pixel [4, 56, 7, 256], first pixel at 0.4948, 0.7808, 5.0034 m
+  OK: bank 0: detector numbers, folding and indices
+  bank 1: detector numbers 401409-516096, layer/tube/straw/pixel [4, 16, 7, 256], first pixel at 0.4963, 0.7105, 2.8941 m
+  OK: bank 1: detector numbers, folding and indices
+  bank 2: detector numbers 516097-602112, layer/tube/straw/pixel [4, 12, 7, 256], first pixel at 0.5366, -0.2503, 3.3544 m
+  OK: bank 2: detector numbers, folding and indices
+  bank 3: detector numbers 602113-716800, layer/tube/straw/pixel [4, 16, 7, 256], first pixel at 0.4966, -0.2869, 2.9348 m
+  OK: bank 3: detector numbers, folding and indices
+  bank 4: detector numbers 716801-802816, layer/tube/straw/pixel [4, 12, 7, 256], first pixel at -0.2255, -0.2499, 3.3756 m
+  OK: bank 4: detector numbers, folding and indices
+  bank 5: detector numbers 802817-1003520, layer/tube/straw/pixel [4, 28, 7, 256], first pixel at 0.6996, 1.0925, 1.0337 m
+  OK: bank 5: detector numbers, folding and indices
+  bank 6: detector numbers 1003521-1232896, layer/tube/straw/pixel [4, 32, 7, 256], first pixel at 1.1926, -0.6147, 1.4861 m
+  OK: bank 6: detector numbers, folding and indices
+  bank 7: detector numbers 1232897-1376256, layer/tube/straw/pixel [4, 20, 7, 256], first pixel at 0.5054, -0.3663, 1.2540 m
+  OK: bank 7: detector numbers, folding and indices
+  bank 8: detector numbers 1376257-1605632, layer/tube/straw/pixel [4, 32, 7, 256], first pixel at -0.3252, -0.5511, 1.6451 m
+  OK: bank 8: detector numbers, folding and indices
+  OK: counts and variances at the hit pixels: [(1, (3.0, 6.5)), (12346, (1.0, 1.0)), (1000001, (3.0, 9.0)), (1605632, (1.0, 1.0))]
+  OK: pixel positions = the pixel centres of the geometry
+  OK: tube and straw indices = those of the geometry (300 random pixels)
+  OK: error for outputs of different geometries
+  OK: older output without the given geometry: error
+  OK: older output with the given geometry (same positions; variances = counts, noted)
