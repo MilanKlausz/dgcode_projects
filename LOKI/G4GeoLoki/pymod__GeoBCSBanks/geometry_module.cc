@@ -32,6 +32,9 @@ protected:
   virtual bool validateParameters();
 private:
   BcsBanks* banks;
+  std::map<int, std::array<double,3>> bankShifts;  // bank_shifts_mm
+  // a point given for the calibrated (unshifted) position of a bank (absorber strips and plates), moved with the bank
+  std::array<double,3> attached(int bankId, double x, double y, double z) const;
   //Functions
   G4LogicalVolume * createTubeLV(double converter_thickness, double straw_length);
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
@@ -96,32 +99,33 @@ namespace {
       std::string number;
       while (std::getline(numbers, number, ','))
         values.push_back(std::stod(number));
-      if ((values.size() != n && values.size() != n + extra) || values[0] < 0 || values[0] > 8)
+      if (values.size() < n || values.size() > n + extra || values[0] < 0 || values[0] > 8)
         throw std::runtime_error("invalid " + what + ": " + item);
       items.push_back(values);
     }
     return items;
   }
 
-  // absorber strips: "bank,x1,y1,z1,x2,y2,z2,width,thickness;..." -> 9 numbers per strip
-  std::vector<std::array<double, 9>> parseAbsorberStrips(const std::string& text) {
-    std::vector<std::array<double, 9>> strips;
+  // absorber strips: "bank,x1,y1,z1,x2,y2,z2,width,thickness[,inside];..." -> 9 or 10 numbers per strip (inside: 0
+  // if not given)
+  std::vector<std::array<double, 10>> parseAbsorberStrips(const std::string& text) {
+    std::vector<std::array<double, 10>> strips;
     std::stringstream items(text);
     std::string item;
     while (std::getline(items, item, ';')) {
       if (item.find_first_not_of(" ") == std::string::npos)
         continue;
-      std::array<double, 9> values;
+      std::array<double, 10> values{};
       std::stringstream numbers(item);
       std::string number;
       size_t n = 0;
       while (std::getline(numbers, number, ',')) {
-        if (n >= 9)
-          throw std::runtime_error("absorber strip with more than 9 values: " + item);
+        if (n >= 10)
+          throw std::runtime_error("absorber strip with more than 10 values: " + item);
         values[n++] = std::stod(number);
       }
-      if (n != 9 || values[0] < 0 || values[0] > 8 || values[7] <= 0 || values[8] <= 0)
-        throw std::runtime_error("invalid absorber strip (bank,x1,y1,z1,x2,y2,z2,width,thickness): " + item);
+      if ((n != 9 && n != 10) || values[0] < 0 || values[0] > 8 || values[7] <= 0 || values[8] <= 0)
+        throw std::runtime_error("invalid absorber strip (bank,x1,y1,z1,x2,y2,z2,width,thickness[,inside]): " + item);
       strips.push_back(values);
     }
     return strips;
@@ -163,6 +167,9 @@ GeoBCS::GeoBCS()
   // individual design masks not present: "bank:mask,mask;bank:..." (the mask ids: the indices of the mask tables of
   // BoronMasks.cc; the volume names are BoronMask-<bank>-<CAD drawing>[.<k>], see BoronMasks::getName)
   addParameterString("boron_mask_exclude", "");
+  // detector packs not on the detector: "bank:pack,pack;bank:..." (pack numbers in the bank, 0 = the pack of tubes 0-1 of
+  // each layer); their pixels get no hits
+  addParameterString("absent_packs", "");
   // design masks drawn in colour in the viewers (display only, same format as boron_mask_exclude): red, and orange
   addParameterString("highlight_boron_masks", "");
   addParameterString("highlight_boron_masks_2", "");
@@ -175,7 +182,9 @@ GeoBCS::GeoBCS()
   addParameterDouble("show_source_cylinder_z_meters", 0.0, -5.0, 15.0);
   // absorber strips on the front faces of banks (e.g. the B4C sheets taped on the banks in source tests):
   // "bank,x1,y1,z1,x2,y2,z2,width,thickness;..." [mm], the strip from the point 1 to the point 2 (world coordinates,
-  // projected on the plane just in front of the tubes of the bank), width and thickness of the strip
+  // projected on the plane just in front of the tubes of the bank), width and thickness of the strip. An optional 10th
+  // value (> 0) places the strip inside the bank volume instead, from the point 1 to the point 2 as given (not
+  // projected: e.g. a strip running from the front of a mask down to a deeper mask), its width parallel to the bank front
   addParameterString("absorber_strips", "");
   addParameterString("absorber_strip_material", "MAT_B4C");
   // absorber plates on a side face of a bank (the face across the tubes nearest to the given points, e.g. the
@@ -183,7 +192,9 @@ GeoBCS::GeoBCS()
   // [mm]: the centre line of the plate from point 1 to point 2 (world coordinates, projected on the plane just outside
   // the face: along the tubes and in depth), its width (in the plane) and thickness (strip material). An optional 10th
   // value (> 0) places the plate inside the bank volume instead, its centre at this distance from the points across the
-  // tubes (e.g. a sheet lying directly on the tubes of the outer row)
+  // tubes (e.g. a sheet lying directly on the tubes of the outer row). With an 11th value 1 the plate lies on the outer
+  // face of the outermost pack on that side instead, parallel to the (tilted) packs, the 10th value being its distance
+  // from the face and the points taken in the frame of that pack
   addParameterString("absorber_plates", "");
 
   // Optional vacuum tank around the detector system (background studies): a cylindrical shell around the beam axis
@@ -200,6 +211,10 @@ GeoBCS::GeoBCS()
   // bank placements: "nominal-geant4-geometry" or the name of a calibration in G4GeoLoki/data/bank_calibration_<name>.txt
   // (or the path of such a file), see G4GeoLoki/BankCalibration.hh
   addParameterString("bank_calibration", BankCalibration::defaultName);
+  // banks moved from their calibrated positions (e.g. on their rails for a measurement): "bank:dx,dy,dz;..." [mm, world
+  // frame], e.g. "2:0,0,700;4:0,0,700"; the absorber strips and plates of a shifted bank (given for its calibrated
+  // position) move with it; the analysis gets the shifted placements with the recorded calibration text
+  addParameterString("bank_shifts_mm", "");
 
   addParameterString("world_material","G4_Vacuum");
   // the gas around the tubes inside the bank and pack volumes (the measurements at atmospheric pressure: G4_AIR)
@@ -297,6 +312,8 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   }
 
   for (int packNumber = 0; packNumber < numberOfPacks; ++packNumber){
+    if (isListedBoronMask("absent_packs", bankId, packNumber))
+      continue;  // a pack not on the detector (e.g. removed for repair): no tubes, no material
     auto lv_pack_box = createPackBoxLV(bankId, packNumber);
     const auto packPosition = banks->getPackPositionInBankFrame(bankId, packNumber);
     place(lv_pack_box, packPosition[0], packPosition[1], packPosition[2],
@@ -377,14 +394,39 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   }
 
   // Absorber plates lying on the outer tube row (inside the bank volume; bank frame: x = depth, y = across the tubes)
-  for (const auto& plate : parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate", 1)) {
-    if (static_cast<int>(plate[0]) != bankId || plate.size() != 10 || plate[9] <= 0)
+  for (const auto& plate : parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate", 2)) {
+    if (static_cast<int>(plate[0]) != bankId || plate.size() < 10 || plate[9] <= 0)
       continue;
     const double width = plate[7], thickness = plate[8], distance = plate[9];
     const BankTransform transform = banks->getBankTransform(bankId);
-    const auto p1 = transform.toLocal({plate[1], plate[2], plate[3]});
-    const auto p2 = transform.toLocal({plate[4], plate[5], plate[6]});
+    const auto p1 = transform.toLocal(attached(bankId, plate[1], plate[2], plate[3]));
+    const auto p2 = transform.toLocal(attached(bankId, plate[4], plate[5], plate[6]));
     const double side = (p1[1] + p2[1] > 0) ? 1.0 : -1.0;
+    if (plate.size() == 11 && plate[10] > 0) {
+      // lying on the outer face of the outermost pack on this side, parallel to the (tilted) packs: the points are
+      // taken in the frame of that pack (x = depth, z = along the tubes), the plate at this distance from its face
+      int outermost = -1;
+      for (int packNumber = 0; packNumber < banks->getNumberOfPacksByBankId(bankId); ++packNumber)
+        if (outermost < 0 || side * banks->getPackPositionInBankFrame(bankId, packNumber)[1] >
+                                 side * banks->getPackPositionInBankFrame(bankId, outermost)[1])
+          outermost = packNumber;
+      const auto pp = banks->getPackPositionInBankFrame(bankId, outermost);
+      const G4ThreeVector packCentre(pp[0], pp[1], pp[2]);
+      const G4RotationMatrix packObject = G4RotationMatrix(0, 0, banks->getPackRotation()).inverse();  // as placed
+      const G4ThreeVector q1 = packObject.inverse() * (G4ThreeVector(p1[0], p1[1], p1[2]) - packCentre);
+      const G4ThreeVector q2 = packObject.inverse() * (G4ThreeVector(p2[0], p2[1], p2[2]) - packCentre);
+      const double qx = q2.x() - q1.x(), qz = q2.z() - q1.z();
+      const double length = std::sqrt(qx * qx + qz * qz);
+      G4RotationMatrix inPlane;
+      inPlane.rotateY(std::atan2(qx, qz));
+      const G4ThreeVector centre = packCentre + packObject * G4ThreeVector(0.5 * (q1.x() + q2.x()),
+          side * (0.5 * BcsPack::getPackBoxHeight() + distance + 0.5 * thickness), 0.5 * (q1.z() + q2.z()));
+      place(new G4Box("AbsorberPlate", 0.5 * width, 0.5 * thickness, 0.5 * length), getParameterMaterial("absorber_strip_material"),
+            centre.x(), centre.y(), centre.z(), lv_bank, BLACK, -7, 0, new G4RotationMatrix((packObject * inPlane).inverse()));
+      printf("GeoBCSBanks: absorber plate in bank %d on pack %d (parallel to the packs, %g mm from its face): %g x %g x %g mm, turned by %.1f deg from the tube direction\n",
+             bankId, outermost, distance, length, width, thickness, std::atan2(qx, qz) * 180 / M_PI);
+      continue;
+    }
     const double outer = side > 0 ? std::max(p1[1], p2[1]) : std::min(p1[1], p2[1]);  // the outermost of the points
     const double dx = p2[0] - p1[0], dz = p2[2] - p1[2];
     const double length = std::sqrt(dx * dx + dz * dz);
@@ -394,6 +436,27 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
           0.5 * (p1[0] + p2[0]), outer + side * distance, 0.5 * (p1[2] + p2[2]), lv_bank, BLACK, -7, 0, rotation);
     printf("GeoBCSBanks: absorber plate in bank %d, %g mm from the outer tube row: %g x %g x %g mm, turned by %.1f deg from the tube direction\n",
            bankId, distance, length, width, thickness, std::atan2(dx, dz) * 180 / M_PI);
+  }
+
+  // Absorber strips inside the bank volume (bank frame: x = depth): a box from the point 1 to the point 2 as given,
+  // its width across the centre line and parallel to the bank front, its thickness about along the depth
+  for (const auto& strip : parseAbsorberStrips(getParameterString("absorber_strips"))) {
+    if (static_cast<int>(strip[0]) != bankId || strip[9] <= 0)
+      continue;
+    const double width = strip[7], thickness = strip[8];
+    const BankTransform transform = banks->getBankTransform(bankId);
+    const auto p1 = transform.toLocal(attached(bankId, strip[1], strip[2], strip[3]));
+    const auto p2 = transform.toLocal(attached(bankId, strip[4], strip[5], strip[6]));
+    const G4ThreeVector a(p1[0], p1[1], p1[2]), b(p2[0], p2[1], p2[2]);
+    const G4ThreeVector along = (b - a).unit();
+    const G4ThreeVector across = G4ThreeVector(1, 0, 0).cross(along).unit();
+    const G4ThreeVector normal = across.cross(along);
+    const G4RotationMatrix objectRotation(normal, across, along);  // columns: the box axes in the bank frame (right-handed)
+    const G4ThreeVector centre = 0.5 * (a + b);
+    place(new G4Box("AbsorberStrip", 0.5 * thickness, 0.5 * width, 0.5 * (b - a).mag()), getParameterMaterial("absorber_strip_material"),
+          centre.x(), centre.y(), centre.z(), lv_bank, BLACK, -6, 0, new G4RotationMatrix(objectRotation.inverse()));
+    printf("GeoBCSBanks: absorber strip in bank %d: %g x %g x %g mm, depth %.1f to %.1f mm in the bank frame (tilted by %.1f deg from the bank front)\n",
+           bankId, (b - a).mag(), width, thickness, a.x(), b.x(), std::asin(std::fabs(along.x())) * 180 / M_PI);
   }
 
   // An enlarged notch must not cut into the content of the bank (packs, masks): it is only meant to remove empty
@@ -463,7 +526,12 @@ G4LogicalVolume *GeoBCS::createTriangularMaskLV(int maskId){
 G4VPhysicalVolume* GeoBCS::Construct(){
   // this is where we put the entire geometry together, the private functions creating the logical volumes are meant to facilitate the code below
   const double rear_detector_distance = getParameterDouble("rear_detector_distance_m")*Units::m;
-  banks = new BcsBanks(rear_detector_distance, 9, getParameterString("bank_calibration"));
+  bankShifts = BankCalibration::parseShifts(getParameterString("bank_shifts_mm"));
+  banks = new BcsBanks(rear_detector_distance, 9,
+                       BankCalibration::load(getParameterString("bank_calibration")).shifted(getParameterString("bank_shifts_mm")));
+  for (const auto& [bankId, shift] : bankShifts)
+    printf("GeoBCSBanks: bank %d shifted from its bank_calibration position by (%g, %g, %g) mm\n", bankId,
+           shift[0] / Units::mm, shift[1] / Units::mm, shift[2] / Units::mm);
 
   // calculate a value that is big enough to fit your world volume, the "super mother"
   double big_dimension = 1.1*( 1 *Units::m + rear_detector_distance);
@@ -509,12 +577,14 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   // Absorber strips in front of the front face of a bank volume (in the world: taped over the structural masks and
   // everything else inside the bank volume); bank frame: x = depth, y = across the tubes, z = along the tubes
   for (const auto& strip : parseAbsorberStrips(getParameterString("absorber_strips"))) {
+    if (strip[9] > 0)
+      continue;  // inside the bank volume (createBankLV)
     const int bankId = static_cast<int>(strip[0]);
     const double width = strip[7], thickness = strip[8];
     const BankTransform transform = banks->getBankTransform(bankId);
     const auto half = banks->getBankHalfSizeInBankFrame(bankId);
-    const auto p1 = transform.toLocal({strip[1], strip[2], strip[3]});
-    const auto p2 = transform.toLocal({strip[4], strip[5], strip[6]});
+    const auto p1 = transform.toLocal(attached(bankId, strip[1], strip[2], strip[3]));
+    const auto p2 = transform.toLocal(attached(bankId, strip[4], strip[5], strip[6]));
     const double dy = p2[1] - p1[1], dz = p2[2] - p1[2];
     const double length = std::sqrt(dy * dy + dz * dz);
     const double depth = -half[0] - 0.5 * Units::mm - 0.5 * thickness;  // just in front of the bank volume
@@ -532,8 +602,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   // Absorber plates on a side face of a bank, outside the bank volume (in the world): a rectangle in the plane of the
   // face (bank frame: x = depth, y = across the tubes, z = along the tubes), its centre line from point 1 to point 2
   // (projected on the plane: along the tubes and in depth), turned in the plane accordingly
-  for (const auto& plate : parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate (bank,x1,y1,z1,x2,y2,z2,width,thickness[,distance])", 1)) {
-    if (plate.size() == 10 && plate[9] > 0)
+  for (const auto& plate : parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate (bank,x1,y1,z1,x2,y2,z2,width,thickness[,distance[,on_pack]]])", 2)) {
+    if (plate.size() >= 10 && plate[9] > 0)
       continue;  // inside the bank volume (createBankLV)
     const int bankId = static_cast<int>(plate[0]);
     const double width = plate[7], thickness = plate[8];
@@ -541,8 +611,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
       throw std::runtime_error("absorber plate with a width or thickness <= 0");
     const BankTransform transform = banks->getBankTransform(bankId);
     const auto half = banks->getBankHalfSizeInBankFrame(bankId);
-    const auto p1 = transform.toLocal({plate[1], plate[2], plate[3]});
-    const auto p2 = transform.toLocal({plate[4], plate[5], plate[6]});
+    const auto p1 = transform.toLocal(attached(bankId, plate[1], plate[2], plate[3]));
+    const auto p2 = transform.toLocal(attached(bankId, plate[4], plate[5], plate[6]));
     const double side = (p1[1] + p2[1] > 0) ? 1.0 : -1.0;  // the face across the tubes nearest to the points
     const double dx = p2[0] - p1[0], dz = p2[2] - p1[2];
     const double length = std::sqrt(dx * dx + dz * dz);
@@ -623,6 +693,13 @@ bool GeoBCS::isListedBoronMask(const std::string& parameter, int bankId, int mas
   return false;
 }
 
+std::array<double,3> GeoBCS::attached(int bankId, double x, double y, double z) const {
+  const auto shift = bankShifts.find(bankId);
+  if (shift == bankShifts.end())
+    return {x, y, z};
+  return {x + shift->second[0], y + shift->second[1], z + shift->second[2]};
+}
+
 bool GeoBCS::hasBoronMasks(int bankId) {
   return parseBankList(getParameterString("boron_mask_banks")).count(bankId) > 0;
 }
@@ -640,9 +717,16 @@ bool GeoBCS::validateParameters() {
     return false;
   }
   try {
+    BankCalibration::load(bankCalibration).shifted(getParameterString("bank_shifts_mm"));
+  }
+  catch (const std::exception& error) {
+    printf("ERROR: Wrong bank_shifts_mm value: %s\n", error.what());
+    return false;
+  }
+  try {
     parseBankList(getParameterString("boron_mask_banks"));
     parseAbsorberStrips(getParameterString("absorber_strips"));
-    parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate (bank,x1,y1,z1,x2,y2,z2,width,thickness[,distance])", 1);
+    parseNumberList(getParameterString("absorber_plates"), 9, "absorber plate (bank,x1,y1,z1,x2,y2,z2,width,thickness[,distance[,on_pack]]])", 2);
   }
   catch (const std::exception& error) {
     printf("ERROR: %s\n", error.what());

@@ -30,7 +30,10 @@ def launch(geo):
       # it has the placements of the simulation even if the calibration file changes or is not there)
       bankCalibration = launcher.getGeo().getParameterString("bank_calibration")
       launcher.setUserData("bank_calibration", bankCalibration)
-      launcher.setUserData("bank_calibration_text", LokiAim.bankCalibrationText(bankCalibration))
+      # banks moved from their calibrated positions (bank_shifts_mm): the recorded text has the shifted placements
+      bankShifts = launcher.getGeo().getParameterString("bank_shifts_mm") if launcher.getGeo().hasParameterString("bank_shifts_mm") else ""
+      launcher.setUserData("bank_shifts_mm", bankShifts)
+      launcher.setUserData("bank_calibration_text", LokiAim.bankCalibrationText(bankCalibration, bankShifts))
 
     launcher.addPrePreInitHook(addUserData) #add userdata when all parameters are available
 

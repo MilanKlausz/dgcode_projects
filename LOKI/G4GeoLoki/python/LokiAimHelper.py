@@ -7,8 +7,10 @@ NOMINAL_BANK_CALIBRATION = _impl.nominal_bank_calibration()
 DEFAULT_BANK_CALIBRATION = _impl.default_bank_calibration()
 DEFAULT_NUMBER_OF_PIXELS_IN_STRAW = _impl.default_number_of_pixels_in_straw()
 
-# the text of a bank calibration file ("" for the nominal geometry); throws for an unknown name
-bankCalibrationText = _impl.bankCalibrationText
+# the text of a bank calibration file ("" for the nominal geometry), with the banks shifted by bank_shifts_mm
+# ("bank:dx,dy,dz;..." [mm], see BankCalibration::shifted); throws for an unknown name or a wrong shift
+def bankCalibrationText( name, shifts = "" ):
+    return _impl.bankCalibrationText( name, shifts )
 
 # the volume names of the geometry that analyses look for (see BcsBanks::getAbsorberVolumeNames)
 def absorberVolumeNames():
