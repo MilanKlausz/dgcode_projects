@@ -13,6 +13,8 @@ models of these tests are in ``LOKI/Larmor/``:
      - The geometries (``GeoLarmor2020``, ``GeoLarmor2022``), simulation, analysis and masking commands, pixel id and mask file conversion.
    * - :sbpkg:`LarmorTests`
      - Tests of the Larmor geometries, aiming and pixel ids.
+   * - :sbpkg:`LarmorMantid`
+     - Mantid processing of the Larmor simulations (``larmor2020``, ``larmor2022``), built only with Mantid.
 
 The Larmor setups are frozen: they have their own copy of the bank placement and of the tube and pixel numbering
 (``Larmor2022Bank``), so changes of the LOKI geometry (e.g. the bank calibrations) do not change them. The detector
@@ -74,3 +76,9 @@ sample and the beam is offset by −40 mm.
    * - ``sb_larmor_ana_2020_det``, ``sb_larmor_simanachain_2020_det``
      - The detector-only variant.
 
+Mantid
+------
+
+``sb_larmormantid_larmor2022`` works like ``sb_lokimantid_loki`` (see :doc:`mantid`) with the instrument definition of the
+2022 test. ``sb_larmormantid_larmor2020`` writes a single NeXus file with the monitors and the detectors (the first 10
+detector ids are monitors, so the pixel ids are offset by 11).

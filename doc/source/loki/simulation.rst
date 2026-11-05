@@ -27,7 +27,8 @@ source (uniform scattering from the sample) aimed at bank 3, its analysis, and a
      - ``detectionEvents.mcpl`` (the detection events) and ``bcsloki_sans.shist`` (histograms), see :doc:`analysis`.
 
 The simulation log is long (an overlap check line per volume): keep it in a file and look for ``NOTE``, ``WARNING`` and
-``ERROR`` lines. The surveyed bank positions are used by default (see :ref:`loki-geometry-bank-calibrations`).
+``ERROR`` lines. The surveyed bank positions are used by default (see :ref:`loki-geometry-bank-calibrations`);
+``bank_calibration=nominal-geant4-geometry`` makes the result processable with Mantid (see :doc:`mantid`).
 :ref:`loki-analysis-inspecting-the-results` shows how to read the detection events.
 
 Running a simulation
@@ -83,7 +84,8 @@ its output the launcher parameters come after the generator parameters, followed
      - Check the geometry for overlaps and exit.
 
 The output goes to the current directory. The pixels are not part of the simulation: ``analysis_straw_pixel_number``
-(default 256) is stored in the GRIFF file and used by the analysis; the instrument's NeXus geometry has 512.
+(default 256) is stored in the GRIFF file and used by the analysis; the instrument's NeXus geometry has 512. Mantid
+processing needs 256 or 512 (its instrument definition files).
 
 Neutron generators
 ------------------

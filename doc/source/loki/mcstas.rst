@@ -98,6 +98,12 @@ instrument are described in its README; those for the Geant4 simulation:
      - Russian roulette of the MCPL output below this McStas weight (n/s per ray; default 1e-2, 0 = none): kept with
        the probability weight/``mcpl_min_weight``, with the weight ``mcpl_min_weight``. About 25% fewer neutrons for
        Geant4 in a water sample run of 1e9 rays, at no loss of precision.
+   * - ``mcpl_max_weight``
+     - Splitting of the MCPL output above this McStas weight (n/s per ray; default 0 = none): a neutron of weight W
+       times ``mcpl_max_weight`` is written as floor(W) copies, plus one more with the probability W - floor(W), each
+       with the weight ``mcpl_max_weight``. ``mcpl_min_weight=1 mcpl_max_weight=1`` gives unit-weight neutrons, each one
+       neutron of a one-second measurement. Use enough rays: a ray far above 1 n/s gives many identical copies. Not
+       in the FUNNEL (GPU) mode.
    * - ``beamstop``
      - Beamstop in front of the rear bank: 0 = 70 mm × 70 mm (default), 1-5 = the beamstops of ESS-1178830 (the
        ``beamstop_id`` of the Geant4 geometry, see :ref:`loki-geometry-beamstops`).
@@ -135,7 +141,14 @@ beam before the sample can be reused for several samples or rear bank distances 
 
 The detection events keep the McStas weights: the configuration's result is the sum of the two detection files, each
 divided by its ``mcpl_stat_sum_initial_ray_count`` (neutrons/s). For a quick test of the chain use ``-n1e7`` (about
-7000 and 80 neutrons in the files). For large files see :doc:`dmsc`.
+700 and 10 neutrons in the files). For large files see :doc:`dmsc`.
+
+**Mantid.** The Mantid processing (see :doc:`mantid`) counts every detection event as one neutron: it needs unit-weight
+events (``mcpl_min_weight=1 mcpl_max_weight=1``). It was written for the earlier LoKI model
+(`loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__, Bitbucket), which wrote three
+MCPL files (front and middle banks, rear bank at 5 m and at 10 m) and had the monitors ``PreSampleMonitor`` and
+``beamstopMonitor_5m``/``beamstopMonitor_10m``. These two monitors are not in the current model: process its detection
+files with ``--detectorOnly``.
 
 **Numbers of the earlier model** (`loki-mcstas-master <https://bitbucket.org/MKlausz/loki-mcstas-master/src/master/>`__,
 deweighted MCPL files: three files, front and middle banks and the rear bank at 5 m and at 10 m) on the DMSC cluster (apertures ``sourceapx=0.030 sourceapy=0.025 sampleapx=0.010

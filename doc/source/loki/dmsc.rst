@@ -78,6 +78,8 @@ number of particles comes from ``pymcpltool --stats`` (see :ref:`loki-mcstas-gea
 
 -  ``skip_events`` is limited to 2³¹: split larger MCPL files first (see :ref:`loki-mcstas-mcpl-file-size`).
 -  Use the ``rear_detector_distance_m`` (and ``beamstop_id``) of the McStas simulation (``reardet``, ``beamstop``).
+-  ``bank_calibration=nominal-geant4-geometry`` and unit-weight events for results processed with Mantid (see
+   :doc:`mantid`).
 
 Checking and merging the results
 --------------------------------

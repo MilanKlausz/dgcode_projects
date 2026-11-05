@@ -59,7 +59,8 @@ The LOKI tests
      - The Larmor setups: geometries, pixel positions and conversions, simulations, masking.
 
 The whole LOKI test set takes about 4.5 minutes when the tests run one at a time; the longest are
-``test_geantino_aiming`` and ``test_masking_full_instrument`` (about 30 s each).
+``test_geantino_aiming`` and ``test_masking_full_instrument`` (about 30 s each). The LokiMantid tests run only with
+Mantid.
 
 Updating a reference log
 ------------------------
