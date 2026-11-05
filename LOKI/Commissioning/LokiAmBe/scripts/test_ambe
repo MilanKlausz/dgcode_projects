@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-# The AmBe source of the LOKI simulation (event_gen=ambe): neutrons from the surface of the moderator cylinder with the
-# spectra and angular distributions of the LOKI/data table.
+# The AmBe source (sb_lokiambe_sim event_gen=ambe): neutrons from the surface of the moderator cylinder with the
+# spectra and angular distributions of the LokiAmBe/data table.
 #  1. the table, the energy sampling (all energies, and a restricted range) and the angular sampling;
-#  2. the tables for the different moderator diameters;
+#  2. the table header (moderator size) and the yields;
 #  3. short simulations: the neutrons start on the surface of the cylinder at the given position, going outwards, with
-#     the moderator size of the table; the share of each surface; isotropic directions on request.
+#     the moderator size of the table (or the given one); the share of each surface; isotropic directions on request;
+#  4. direction biasing.
 
 import glob
 import re
@@ -15,7 +16,7 @@ import subprocess
 import sys
 import numpy as np
 import mcpl
-import LOKI.AmBeSourceGen as gen
+import LokiAmBe.AmBeSourceGen as gen
 from Core import FindData
 
 failed = False
@@ -25,7 +26,7 @@ def check(ok, message):
     failed |= not ok
 
 print("1. table, energy and angular sampling")
-low, high, spectra, angular = gen.read_table(FindData('LOKI', gen.DEFAULT_SPECTRUM))
+low, high, spectra, angular = gen.read_table(FindData('LokiAmBe', gen.DEFAULT_SPECTRUM))
 low, high = np.array(low), np.array(high)
 yields = {s: np.array(v).sum() for s, v in spectra.items()}
 print(f"  {len(low)} bins, {low[0]:.0e} - {high[-1]:.2e} eV; neutrons per source neutron: "
@@ -54,34 +55,24 @@ for lo, hi, fractions in angular['side']:
     print(f"  side, {lo:g} - {hi:g} eV: mean cos to the normal: table {expected:.3f}, sampled {c.mean():.3f}")
     check(abs(c.mean() - expected) < 0.01 and c.min() >= 0 and c.max() <= 1, "sampled angular distribution as in the table")
 
-print("2. the tables of LOKI/data (moderator size from the header, yields, thermal fraction)")
-# ambe_hdpe_d<diameter>cm[_h<height>cm]_spectrum.txt (the height only in the names of the tables of other heights)
-TABLE_NAME = re.compile(r'ambe_hdpe_d([0-9.]+)cm(?:_h([0-9.]+)cm)?_spectrum\.txt$')
-
-
-def table_size(path):
-    """(diameter, height or 0 if not in the name) [cm]"""
-    d, h = TABLE_NAME.match(os.path.basename(path)).groups()
-    return float(d), float(h) if h else 0.0
-
-
-for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LOKI', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_d*cm*_spectrum.txt')),
-                   key=lambda p: (table_size(p), os.path.basename(p))):
+print("2. the table of LokiAmBe/data (moderator size from the header, yields, thermal fraction)")
+for path in sorted(glob.glob(os.path.join(os.path.dirname(FindData('LokiAmBe', gen.DEFAULT_SPECTRUM)), 'ambe_hdpe_*_spectrum.txt'))):
     a, b, s, _ = gen.read_table(path)
     b = np.array(b)
     radius, height = gen.read_moderator_size(path)
     side, top, bottom = (np.array(s[k]) for k in gen.SURFACES)
     print(f"  {os.path.basename(path)}: radius {radius:g} cm, height {height:g} cm; per source neutron through the side "
           f"{side.sum():.3f} (thermal {side[b <= 0.5].sum():.3f}), top {top.sum():.3f}, bottom {bottom.sum():.3f}")
-    diameter, named_height = table_size(path)
-    check(diameter == 2 * radius and named_height in (0.0, height), "the file name matches the header")
+    match = re.match(r'ambe_hdpe_d([0-9.]+)cm_h([0-9.]+)cm_spectrum\.txt$', os.path.basename(path))
+    check(match is not None and float(match.group(1)) == 2 * radius and float(match.group(2)) == height,
+          "the file name matches the header")
 
 print("3. short simulations with event_gen=ambe")
 centre = np.array([-13.5, 6.5, 167.7])  # [cm]
 
 
 def source(name, n, seed, *pars):
-    sim = subprocess.run(['sb_loki_sim', '-n', str(n), '-s', str(seed), 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
+    sim = subprocess.run(['sb_lokiambe_sim', '-n', str(n), '-s', str(seed), 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty',
                           'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', f'--mcpl=grabsrc to {name}', *pars],
                          capture_output=True, text=True)
     check(sim.returncode == 0, "the simulation runs")
@@ -93,35 +84,37 @@ def source(name, n, seed, *pars):
 
 pos, direction = source('src', 2000, 1)
 radius = np.hypot(pos[:, 0], pos[:, 2])
-on_side = np.isclose(radius, 11.5, atol=1e-3) & (np.abs(pos[:, 1]) <= 13.5 + 1e-3)
-on_top = np.isclose(pos[:, 1], 13.5, atol=1e-3) & (radius <= 11.5 + 1e-3)
-on_bottom = np.isclose(pos[:, 1], -13.5, atol=1e-3) & (radius <= 11.5 + 1e-3)
+on_side = np.isclose(radius, 13.0, atol=1e-3) & (np.abs(pos[:, 1]) <= 13.0 + 1e-3)
+on_top = np.isclose(pos[:, 1], 13.0, atol=1e-3) & (radius <= 13.0 + 1e-3)
+on_bottom = np.isclose(pos[:, 1], -13.0, atol=1e-3) & (radius <= 13.0 + 1e-3)
 normal = np.where(on_side[:, None], np.column_stack([pos[:, 0] / radius, np.zeros(len(pos)), pos[:, 2] / radius]),
                   np.column_stack([np.zeros(len(pos)), np.sign(pos[:, 1]), np.zeros(len(pos))]))
 cos_normal = np.sum(direction * normal, axis=1)
 side_share = yields['side'] / sum(yields.values())
 print(f"  {len(pos)} neutrons: side {on_side.mean() * 100:.1f}% (table {side_share * 100:.1f}%), top {on_top.mean() * 100:.1f}%, "
       f"bottom {on_bottom.mean() * 100:.1f}%; mean cos to the outward normal {cos_normal.mean():.2f}")
-check(len(pos) == 2000 and np.all(on_side | on_top | on_bottom), "on the surface of the cylinder (radius 11.5 cm, height 27 cm)")
+check(len(pos) == 2000 and np.all(on_side | on_top | on_bottom), "on the surface of the cylinder (radius 13 cm, height 26 cm)")
 check(abs(on_side.mean() - side_share) < 0.03 and abs(on_top.mean() - on_bottom.mean()) < 0.03, "the share of each surface as in the table")
 check(np.all(cos_normal >= -1e-6) and cos_normal.mean() > 0.7, "going outwards, peaked along the normal")
 pos, direction = source('srciso', 1000, 3, 'surfaces=side', 'angular_distribution=isotropic')
 radius = np.hypot(pos[:, 0], pos[:, 2])
 cos_normal = np.sum(direction * np.column_stack([pos[:, 0] / radius, np.zeros(len(pos)), pos[:, 2] / radius]), axis=1)
 print(f"  side only, isotropic: distance from the axis {radius.min():.3f} - {radius.max():.3f} cm, mean cos to the outward normal {cos_normal.mean():.2f}")
-check(np.allclose(radius, 11.5, atol=1e-3) and np.all(cos_normal >= -1e-6) and abs(cos_normal.mean() - 0.5) < 0.05,
+check(np.allclose(radius, 13.0, atol=1e-3) and np.all(cos_normal >= -1e-6) and abs(cos_normal.mean() - 0.5) < 0.05,
       "on the side, isotropic in the outward hemisphere")
-pos, _ = source('src16', 100, 2, 'spectrum_file=ambe_hdpe_d16cm_spectrum.txt', 'surfaces=side')
-print(f"  with the 16 cm table: distance from the axis {np.hypot(pos[:, 0], pos[:, 2]).min():.3f} - "
-      f"{np.hypot(pos[:, 0], pos[:, 2]).max():.3f} cm")
-check(np.allclose(np.hypot(pos[:, 0], pos[:, 2]), 8.0, atol=1e-3), "the radius from the table header")
+pos, _ = source('src16', 100, 2, 'moderator_radius_cm=8', 'moderator_height_cm=20')
+radius = np.hypot(pos[:, 0], pos[:, 2])
+print(f"  with moderator_radius_cm=8 moderator_height_cm=20: distance from the axis {radius.min():.3f} - "
+      f"{radius.max():.3f} cm, height {pos[:, 1].min():.3f} - {pos[:, 1].max():.3f} cm")
+check(np.all(radius <= 8.0 + 1e-3) and np.all(np.abs(pos[:, 1]) <= 10.0 + 1e-3) and np.any(np.isclose(radius, 8.0, atol=1e-3)),
+      "the given moderator size instead of the table header")
 print("4. direction biasing (aim_half_angle_deg): the mean weight = the fraction of the unbiased directions in the cone")
 aim = np.array([0.0, 6.5, 1000.0])  # [cm], the cone axis from each start point to this point
 pos, direction = source('srcunb', 20000, 4, 'surfaces=side')
 w_unb = None
 axis = aim - (pos + centre); axis /= np.linalg.norm(axis, axis=1)[:, None]
 inside = np.sum(direction * axis, axis=1) > np.cos(np.radians(30.0))
-sim = subprocess.run(['sb_loki_sim', '-n', '5000', '-s', '5', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty', 'surfaces=side',
+sim = subprocess.run(['sb_lokiambe_sim', '-n', '5000', '-s', '5', 'event_gen=ambe', '-m', 'MINIMAL', '-lPL_Empty', 'surfaces=side',
                       'x_meters=-0.135', 'y_meters=0.065', 'z_meters=1.677', 'aim_half_angle_deg=30', 'aim_x_meters=0',
                       'aim_y_meters=0.065', 'aim_z_meters=10', '--mcpl=grabsrc to srcaim'], capture_output=True, text=True)
 check(sim.returncode == 0, "the simulation runs")

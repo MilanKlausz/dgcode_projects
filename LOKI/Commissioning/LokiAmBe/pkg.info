@@ -1,0 +1,21 @@
+package(USEPKG LOKI G4GeoLoki G4CustomPyGen G4Interfaces G4Launcher G4CollectFilters G4MCPLPlugins Units USEEXT MCPL)
+
+######################################################################
+
+The AmBe neutron source in a cylindrical HDPE moderator, for LOKI simulations of
+measurements with such a source (e.g. the detector test of October 2026, see
+LokiCommissioning/DetectorTest2026October):
+
+  sb_lokiambe_sim event_gen=ambe x_meters=.. y_meters=.. z_meters=.. [...]
+  sb_lokiambe_simanachain <dir> event_gen=ambe [...]
+
+python/AmBeSourceGen.py: the generator (neutrons leaving the moderator surface,
+with the spectra and angular distributions of a table in data/).
+
+The table is made with the moderator simulation (the bare AmBe source in the
+HDPE cylinder, pymod__GeoModerator and python/AmBeModeratorGen.py):
+
+  sb_lokiambe_moderatorsim ... --mcpl="RecordShell where trk.pdgcode==2112 to leak"
+  sb_lokiambe_makespectrum LEAK NSOURCE OUT RADIUS_CM HEIGHT_CM
+
+Primary author: milan.klausz@ess.eu

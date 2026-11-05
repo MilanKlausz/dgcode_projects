@@ -1,14 +1,14 @@
-"""AmBe neutron source in a cylindrical HDPE moderator (event_gen=ambe of the LOKI simulation).
+"""AmBe neutron source in a cylindrical HDPE moderator (event_gen=ambe of sb_lokiambe_sim).
 
 The neutrons start on the surface of the moderator cylinder (vertical axis, centred at x/y/z_meters): the curved side
 (uniform in height and around the axis), the top and the bottom (uniform on the disks), in proportion to the neutrons
 leaving through each surface in the generated energy range. The energy is sampled from the spectrum of the neutrons
 leaving through that surface, and the direction from their angular distribution relative to the outward surface
 normal (in energy groups; or isotropic in the outward hemisphere: angular_distribution=isotropic). The spectra and
-angular distributions are tables in LOKI/data from a Geant4 simulation of the AmBe source in the moderator (see the
-header of a table). The moderator itself is not in the geometry. The tables of LOKI/data are for moderator diameters
-of 8 to 34 cm (ambe_hdpe_d<diameter>cm_spectrum.txt, height 27 cm); the moderator radius and height are taken from
-the header of the table unless given.
+angular distributions are a table in LokiAmBe/data, made with the moderator simulation of this package (see the header
+of the table and LokiAmBe/scripts/makespectrum). The moderator itself is not in the geometry. The table of the source
+of the LoKI detector test (October 2026) is ambe_hdpe_d26cm_h26cm_spectrum.txt (diameter 26 cm, height 26 cm); the
+moderator radius and height are taken from the header of the table unless given.
 
 Direction biasing (aim_half_angle_deg > 0): the directions are sampled uniformly within a cone of that half angle
 around the direction from the start point to the aim point (aim_x/y/z_meters), with the weight (true angular density
@@ -27,7 +27,7 @@ import G4CustomPyGen
 from Core import FindData
 from Units import units
 
-DEFAULT_SPECTRUM = "ambe_hdpe_d23cm_spectrum.txt"
+DEFAULT_SPECTRUM = "ambe_hdpe_d26cm_h26cm_spectrum.txt"
 SURFACES = ("side", "top", "bottom")
 
 
@@ -128,7 +128,7 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         # the moderator [cm] (-1: from the header of the table)
         self.addParameterDouble("moderator_radius_cm", -1.0)
         self.addParameterDouble("moderator_height_cm", -1.0)
-        # the table (in the LOKI data, or a path) and the energy range to generate [eV]
+        # the table (in the LokiAmBe data, or a path) and the energy range to generate [eV]
         self.addParameterString("spectrum_file", DEFAULT_SPECTRUM)
         self.addParameterDouble("min_energy_eV", 0.0)
         self.addParameterDouble("max_energy_eV", 1e9)
@@ -148,7 +148,7 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
     def init_generator(self, gun):
         gun.set_type(self.particle)
         name = self.spectrum_file
-        path = name if "/" in name else FindData("LOKI", name)
+        path = name if "/" in name else FindData("LokiAmBe", name)
         low, high, spectra, angular = read_table(path)
         surfaces = [s.strip() for s in self.surfaces.split(",") if s.strip()]
         for surface in surfaces:

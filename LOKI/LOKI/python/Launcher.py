@@ -2,7 +2,10 @@ import G4GeoLoki.LokiAimHelper as LokiAim
 from Units import units
 import numpy as np
 
-def launch(geo):
+def launch(geo, extra_generators=None, user_data=None):
+    """The LOKI simulation with the geometry geo. extra_generators: event generators of other packages, {event_gen
+    value: function(launcher) returning the generator} (e.g. event_gen=ambe of LokiAmBe); user_data: {key: value}
+    added to the user data (GRIFF metadata) of the output."""
     import G4Launcher
     launcher = G4Launcher()
 
@@ -84,12 +87,8 @@ def launch(geo):
     elif launcher.getParameterString('event_gen')=='isotheta':
         from  LOKI.IsoThetaGen import IsoThetaGen as Gen
         gen = Gen()
-    elif launcher.getParameterString('event_gen')=='ambe':
-        # AmBe source in a cylindrical HDPE moderator: neutrons from the surface of the moderator, with the spectra
-        # and angular distributions of the neutrons leaving it (LOKI/data table), e.g. the source tests of October 2026:
-        #   event_gen=ambe x_meters=-0.135 y_meters=0.065 z_meters=1.677 [max_energy_eV=1e5]
-        from LOKI.AmBeSourceGen import AmBeSourceGen as Gen
-        gen = Gen()
+    elif extra_generators and launcher.getParameterString('event_gen') in extra_generators:
+        gen = extra_generators[launcher.getParameterString('event_gen')](launcher)
     else:
         import G4StdGenerators.FlexGen as Gen
         gen = Gen.create()
@@ -123,6 +122,8 @@ def launch(geo):
               f"processed with Mantid.")
       launcher.setUserData("aiming_bank_id", str(launcher.getParameterString('aiming_bank_id')))
       launcher.setUserData("nominal_source_sample_distance_meters", str(launcher.getParameterDouble('nominal_source_sample_distance_meters')))
+      for key, value in (user_data or {}).items():
+        launcher.setUserData(key, str(value))
       if(launcher.getGen().getName()=="LOKI.FloodSourceGen/FloodSourceGen"): #event_gen=flood
         launcher.setUserData("source_monitor_distance_meters", str(launcher.getGen().source_monitor_distance_meters))
         launcher.setUserData("sampling_cone_opening_deg", str(launcher.getGen().cone_opening_deg))

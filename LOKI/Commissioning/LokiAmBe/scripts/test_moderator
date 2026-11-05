@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# The moderator simulation and the table made from it: a short run with the moderator of the table of LokiAmBe/data
+# (diameter 26 cm, height 26 cm), the neutrons leaving the moderator recorded in an MCPL file, the table made with
+# sb_lokiambe_makespectrum and read by AmBeSourceGen; its yields agree with those of the data table (statistics of
+# 3000 source neutrons).
+
+set -u
+sb_lokiambe_moderatorsim -n 3000 -s 5000 -m MINIMAL -o griff_tmp moderator_radius_cm=13 moderator_height_cm=26 \
+    --mcpl='RecordShell where trk.pdgcode==2112 to leak' > sim.log 2>&1 || { tail -30 sim.log; echo "TEST FAILED: sim"; exit 1; }
+sb_lokiambe_makespectrum leak.mcpl.gz 3000 test_table.txt 13 26 > table.log 2>&1 || { cat table.log; echo "TEST FAILED: table"; exit 1; }
+tail -1 table.log
+python3 - <<'EOF'
+import sys
+import numpy as np
+import LokiAmBe.AmBeSourceGen as gen
+from Core import FindData
+ok = True
+radius, height = gen.read_moderator_size('test_table.txt')
+_, _, test, angular = gen.read_table('test_table.txt')
+_, _, ref, _ = gen.read_table(FindData('LokiAmBe', gen.DEFAULT_SPECTRUM))
+print(f"  moderator from the header: radius {radius:g} cm, height {height:g} cm")
+ok &= (radius, height) == (13.0, 26.0) and sorted(angular) == sorted(gen.SURFACES)
+for s in gen.SURFACES:
+    t, r = np.sum(test[s]), np.sum(ref[s])
+    err = np.sqrt(t * 3000) / 3000
+    print(f"  {s}: {t:.3f} +- {err:.3f} neutrons per source neutron (data table {r:.4f})")
+    ok &= abs(t - r) < 4 * err
+print(f"  {'OK' if ok else 'FAILED'}: the table has the format of the data table and its yields")
+sys.exit(0 if ok else 1)
+EOF

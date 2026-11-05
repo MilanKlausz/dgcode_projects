@@ -1,0 +1,6 @@
+written test_table.txt from 1 file(s)
+  moderator from the header: radius 13 cm, height 26 cm
+  side: 0.311 +- 0.010 neutrons per source neutron (data table 0.2948)
+  top: 0.050 +- 0.004 neutrons per source neutron (data table 0.0543)
+  bottom: 0.047 +- 0.004 neutrons per source neutron (data table 0.0543)
+  OK: the table has the format of the data table and its yields
