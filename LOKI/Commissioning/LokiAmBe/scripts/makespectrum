@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""The neutrons leaving the moderator cylinder (leak.mcpl.gz of sb_lokiambe_moderatorsim runs) as a table for the AmBe
+source (python/AmBeSourceGen.py): the energy spectra through the curved side, the top and the bottom (neutrons per
+source neutron in log energy bins), and the angular distributions relative to the outward surface normal per surface
+and energy group.
+
+usage: sb_lokiambe_makespectrum LEAK NSOURCE OUT RADIUS_CM HEIGHT_CM
+LEAK may be a directory of runs (DIR/job*/leak.mcpl.gz) or a glob pattern; NSOURCE is then the total number of source
+neutrons of these runs."""
+import glob
+import os
+import sys
+import numpy as np
+import mcpl
+
+if len(sys.argv) != 6:
+    sys.exit(__doc__)
+leak, nsrc, out = sys.argv[1], float(sys.argv[2]), sys.argv[3]
+radius_cm, height_cm = float(sys.argv[4]), float(sys.argv[5])
+files = sorted(glob.glob(os.path.join(leak, 'job*', 'leak.mcpl.gz'))) if os.path.isdir(leak) else sorted(glob.glob(leak))
+if not files:
+    sys.exit(f'no file matches {leak}')
+E, pos, d = [], [], []
+for fn in files:
+    for pb in mcpl.MCPLFile(fn).particle_blocks:
+        E.append(pb.ekin * 1e6); pos.append(pb.position.copy()); d.append(pb.direction.copy())
+E, pos, d = np.concatenate(E), np.concatenate(pos), np.concatenate(d)  # eV, cm
+r = np.hypot(pos[:, 0], pos[:, 2])
+half = 0.5 * height_cm
+surface = np.where(pos[:, 1] >= half - 0.01, 1, np.where(pos[:, 1] <= -half + 0.01, 2, 0))  # side, top, bottom
+names = ("side", "top", "bottom")
+# cos of the angle to the outward normal of the surface where the neutron leaves
+cos_normal = np.select([surface == 0, surface == 1, surface == 2],
+                       [(d[:, 0] * pos[:, 0] + d[:, 2] * pos[:, 2]) / np.maximum(r, 1e-9), d[:, 1], -d[:, 1]])
+cos_normal = np.clip(cos_normal, 0.0, 1.0)
+edges = np.logspace(-5, np.log10(12e6), int(round(10 * (np.log10(12e6) + 5))) + 1)  # 10 bins per decade [eV]
+spectra = [np.histogram(E[surface == s], bins=edges)[0] / nsrc for s in range(3)]
+groups = [("thermal", 0, 0.5), ("epithermal", 0.5, 1e5), ("fast", 1e5, 1e9)]  # below 0.5 eV, up to 100 keV, above
+angular_groups = [(0.0, 0.5), (0.5, 1e5), (1e5, 1e6), (1e6, 3e6), (3e6, 1e9)]  # [eV]
+cos_bins = 20
+
+lines = ["# Neutrons leaving a cylindrical HDPE moderator (vertical axis) with an AmBe source at its centre (approximate",
+         "# ISO 8529-1 241Am-Be spectrum, mean 4.2 MeV; Geant4 QGSP_BIC_HP_EMZ with NCrystal Polyethylene_CH2.ncmat thermal",
+         "# scattering, density 0.95 g/cm3; steel capsule r 1 cm, h 3 cm), for the AmBe source of the LOKI simulation.",
+         f"# Moderator: diameter {2 * radius_cm:g} cm, height {height_cm:g} cm",
+         f"# {int(nsrc)} source neutrons; neutrons per source neutron through the side, top, bottom:"]
+for s in range(3):
+    m = surface == s
+    parts = ", ".join(f"{name} {np.sum(m & (E >= lo) & (E < hi)) / nsrc:.4f}" for name, lo, hi in groups)
+    lines.append(f"#   {names[s]}: {m.sum() / nsrc:.4f} ({parts})")
+lines.append("# Spectrum lines: lower and upper bin edge [eV], neutrons per source neutron in the bin through the side, the top")
+lines.append("# and the bottom.")
+for i, (lo, hi) in enumerate(zip(edges[:-1], edges[1:])):
+    lines.append(f"{lo:.6e} {hi:.6e} {spectra[0][i]:.6e} {spectra[1][i]:.6e} {spectra[2][i]:.6e}")
+lines.append(f"# Angular lines: angular, the surface, the energy range [eV], then the fraction of the neutrons in {cos_bins} equal bins")
+lines.append("# of cos(angle to the outward surface normal) from 0 to 1 (per bin, not per solid angle).")
+for s in range(3):
+    for lo, hi in angular_groups:
+        m = (surface == s) & (E >= lo) & (E < hi)
+        h = np.histogram(cos_normal[m], bins=cos_bins, range=(0.0, 1.0))[0].astype(float)
+        if h.sum() == 0:
+            h[:] = 1.0  # no neutrons in this group: isotropic
+        lines.append(f"angular {names[s]} {lo:g} {hi:g} " + " ".join(f"{v:.5f}" for v in h / h.sum()))
+with open(out, "w") as fo:
+    fo.write("\n".join(lines) + "\n")
+print("\n".join(lines[3:8]))
+print("written", out, "from", len(files), "file(s)")

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+# The LOKI simulation (sb_loki_sim) with the AmBe source in addition: event_gen=ambe (see python/AmBeSourceGen.py)
+
+import LokiAmBe.Launcher
+LokiAmBe.Launcher.launch()

@@ -2,7 +2,9 @@ import G4GeoLoki.LokiAimHelper as LokiAim
 from Units import units
 import numpy as np
 
-def launch(geo):
+def launch(geo, extra_generators=None, user_data=None):
+    """The LOKI simulation with the geometry geo. extra_generators: event generators of other packages, {event_gen
+    value: generator class}; user_data: {key: value} added to the user data (GRIFF metadata) of the output."""
     import G4Launcher
     launcher = G4Launcher()
 
@@ -90,6 +92,8 @@ def launch(geo):
     elif launcher.getParameterString('event_gen')=='isotheta':
         from  LOKI.IsoThetaGen import IsoThetaGen as Gen
         gen = Gen()
+    elif extra_generators and launcher.getParameterString('event_gen') in extra_generators:
+        gen = extra_generators[launcher.getParameterString('event_gen')]()
     else:
         import G4StdGenerators.FlexGen as Gen
         gen = Gen.create()
@@ -119,6 +123,8 @@ def launch(geo):
               f"processed with Mantid.")
       launcher.setUserData("aiming_bank_id", str(launcher.getParameterString('aiming_bank_id')))
       launcher.setUserData("nominal_source_sample_distance_meters", str(launcher.getParameterDouble('nominal_source_sample_distance_meters')))
+      for key, value in (user_data or {}).items():
+        launcher.setUserData(key, str(value))
       if(launcher.getGen().getName()=="LOKI.FloodSourceGen/FloodSourceGen"): #event_gen=flood
         launcher.setUserData("source_monitor_distance_meters", str(launcher.getGen().source_monitor_distance_meters))
         launcher.setUserData("sampling_cone_opening_deg", str(launcher.getGen().cone_opening_deg))

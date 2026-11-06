@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+# The AmBe source in its HDPE moderator (pymod__GeoModerator, python/AmBeModeratorGen.py), to make the spectrum table of
+# the AmBe source (see scripts/makespectrum): record the neutrons leaving the moderator with --mcpl, e.g.
+#   sb_lokiambe_moderatorsim -n 200000 -s 5000 -m MINIMAL moderator_radius_cm=13 moderator_height_cm=26 \
+#       --mcpl="RecordShell where trk.pdgcode==2112 to leak"
+
+import G4Launcher
+import LokiAmBe.GeoModerator as Geo
+import LokiAmBe.AmBeModeratorGen as Gen
+
+launcher = G4Launcher()
+launcher.setGeo(Geo.create())
+launcher.setGen(Gen.AmBeModeratorGen())
+# GRIFF: only the steps in the recording shell (the leaking neutrons are written by --mcpl)
+import G4CollectFilters.StepFilterVolume as Filter
+f = Filter.create()
+f.volumeList = ["RecordShell"]
+launcher.setFilter(f)
+launcher.go()
