@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+# The HDF5 output (sb_lokioutput_writehdf5) of a flood source simulation without interactions and its analysis, with hits
+# added by hand to the histograms of the analysis output (known pixels and weights): the counts, variances, pixel ids,
+# indices and positions of the file, adding up of several outputs, and the errors for outputs of different geometries.
+
+run() { local name=$1; shift; "$@" > $name.log 2>&1 || { tail -40 $name.log; echo "TEST FAILED: $name"; exit 1; }; }
+run sim sb_loki_sim -lPL_Empty event_gen=flood -n10
+run ana sb_loki_ana lokisim.griff
+python3 - <<'EOF'
+import os
+import subprocess
+import sys
+import h5py
+import numpy as np
+import SimpleHists as sh
+import LokiOutput.Hdf5Output as H
+
+failed = False
+def check(ok, message):
+    global failed
+    print(f"  {'OK' if ok else 'FAILED'}: {message}")
+    failed |= not ok
+
+# hits added by hand: (pixel id, weight) in the pixel histograms (h_neutron_pixel_hit: pixel along the straw, straw)
+collection = sh.HistCollection('bcsloki_sans.shist')
+geometry = H.parse_geometry_comment(collection.hist(H.PIXEL_W2_HIST).comment)
+pixels = geometry['straw_pixel_number']
+print(f"recorded geometry: bank_calibration {geometry['bank_calibration']}, rear detector distance "
+      f"{geometry['rear_detector_distance_m']:g} m, {pixels} pixels per straw")
+hits = [(0, 2.5), (0, 0.5), (12345, 1.0), (1000000, 3.0), (1605632 - 1, 1.0)]
+for pid, w in hits:
+    collection.hist(H.PIXEL_HIST).fill(pid % pixels + 0.5, pid // pixels + 0.5, w)
+    collection.hist(H.PIXEL_W2_HIST).fill(pid % pixels + 0.5, pid // pixels + 0.5, w * w)
+collection.saveToFile('filled.shist', True)
+
+def writehdf5(*args):
+    return subprocess.run(['sb_lokioutput_writehdf5', *args], capture_output=True, text=True)
+
+r = writehdf5('filled.shist', 'bcsloki_sans.shist', '-o', 'out.h5', 'description=test')
+print(r.stdout.strip())
+check(r.returncode == 0, 'sb_lokioutput_writehdf5 of two analysis outputs')
+expected = {}
+for pid, w in hits:
+    c, v = expected.get(pid + 1, (0.0, 0.0))
+    expected[pid + 1] = (c + w, v + w * w)
+counts, positions, ids = {}, [], []
+with h5py.File('out.h5') as f:
+    e = f['entry']
+    check(e.attrs['n_source_events'] == 20 and e.attrs['description'] == 'test' and e.attrs['weighted']
+          and e.attrs['bank_calibration'] == geometry['bank_calibration'] and 'rate_1Ci' not in e['loki_detector_0'],
+          'entry attributes (20 source events: the two outputs added up; weighted; no AmBe normalisation)')
+    first = 1
+    for b in range(H.NUMBER_OF_BANKS):
+        g = e[f'loki_detector_{b}']
+        dn = g['detector_number'][:]
+        n = dn.size
+        sizes = [int(g.attrs[k]) for k in ('layers', 'tubes_per_layer', 'straws_per_tube', 'pixels_per_straw')]
+        index = (g['tube'][:].astype(np.int64) * 7 + g['straw'][:]) * pixels + g['pixel'][:]
+        print(f"  bank {b}: detector numbers {dn[0]}-{dn[-1]}, layer/tube/straw/pixel {sizes}, first pixel at "
+              + ", ".join(f"{g[f'{a}_position'][0]:.4f}" for a in 'xyz') + " m")
+        check(dn[0] == first and np.array_equal(dn, first + np.arange(n)) and np.prod(sizes) == n
+              and np.array_equal(index, dn - first), f'bank {b}: detector numbers, folding and indices')
+        first += n
+        for d in np.flatnonzero(g['counts'][:]):
+            counts[int(dn[d])] = (float(g['counts'][d]), float(g['counts_variance'][d]))
+        ids.append(dn)
+        positions.append(np.stack([g[f'{a}_position'][:] for a in 'xyz'], axis=1))
+check(counts == expected, f'counts and variances at the hit pixels: {sorted(counts.items())}')
+helper = H.aim_helper(geometry)
+exact = np.array([helper.getPixelCentreCoordinates(i) for i in range(helper.getTotalNumberOfPixels())]) / 1000.0
+check(np.abs(np.concatenate(positions) - exact).max() < 1e-12, 'pixel positions = the pixel centres of the geometry')
+rng = np.random.default_rng(1)
+ok = True
+for pid in rng.integers(0, helper.getTotalNumberOfPixels(), 300):
+    bank = helper.getBankId(int(pid))
+    local = int(pid) - helper.getBankPixelOffset(bank)
+    tube = helper.getTubeId(int(pid), bank)
+    ok &= (tube, helper.getStrawId(int(pid), bank, tube)) == (local // (7 * pixels), local // pixels % 7)
+check(ok, 'tube and straw indices = those of the geometry (300 random pixels)')
+
+# outputs of another geometry cannot be added up; older outputs (no squared weights) need the geometry given
+other = sh.HistCollection('bcsloki_sans.shist')
+other.hist(H.PIXEL_W2_HIST).setComment(other.hist(H.PIXEL_W2_HIST).comment.replace('rear_detector_distance_m=', 'rear_detector_distance_m=1'))
+other.saveToFile('other.shist', True)
+r = writehdf5('bcsloki_sans.shist', 'other.shist', '-o', 'bad.h5')
+check(r.returncode != 0 and 'another geometry' in r.stderr, 'error for outputs of different geometries')
+old = sh.HistCollection('bcsloki_sans.shist')
+old.remove(H.PIXEL_W2_HIST)
+old.saveToFile('old.shist', True)
+r = writehdf5('old.shist', '-o', 'old.h5')
+check(r.returncode != 0 and 'no recorded geometry' in r.stderr, 'older output without the given geometry: error')
+old_geometry = ('--rear-detector-distance', str(geometry['rear_detector_distance_m']), '--bank-calibration')
+r = writehdf5('old.shist', '-o', 'old.h5', *old_geometry, geometry['bank_calibration'])
+with h5py.File('old.h5') as f:
+    check(r.returncode == 0 and 'WARNING: older analysis output' in r.stdout and 'geometry_note' in f['entry'].attrs
+          and 'counts_variance_note' in f['entry'].attrs
+          and np.allclose(f['entry/loki_detector_0/x_position'][:], positions[0][:, 0]),
+          'older output with the given geometry (a warning; same positions; variances = counts, noted)')
+writehdf5('old.shist', '-o', 'old0.h5', *old_geometry, '2026-September-SAM-606')
+r = writehdf5('old.shist', '-o', 'oldshift.h5', *old_geometry, '2026-September-SAM-606', '--bank-shifts', '2:0,0,570')
+with h5py.File('old0.h5') as f0, h5py.File('oldshift.h5') as f:
+    z = {b: f[f'entry/loki_detector_{b}/z_position'][:] - f0[f'entry/loki_detector_{b}/z_position'][:] for b in (1, 2)}
+    check(r.returncode == 0 and 'bank shifts: 2:0,0,570' in r.stdout and np.allclose(z[2], 0.57) and np.all(z[1] == 0),
+          'older output with --bank-shifts: only bank 2 is moved')
+r = writehdf5('old.shist', '-o', 'bad.h5', *old_geometry, '2026-September-SAM-606', '--bank-shifts', '0:0,0,5')
+check(r.returncode != 0 and 'rear_detector_distance_m' in r.stderr, 'error for a wrong bank shift')
+
+# the AmBe rate at 1 Ci: with --ambe-yield, and from the log of a simanachain directory (also with --chainmult: runsim_part*)
+r = writehdf5('filled.shist', '-o', 'ambe.h5', '--ambe-yield', '0.4')
+os.makedirs('chain/runana')
+os.makedirs('chain/runsim_part0001')
+subprocess.run(['cp', 'filled.shist', 'chain/runana/'], check=True)
+with open('chain/runsim_part0001/output.log', 'w') as log:  # the line printed by AmBeSourceGen of LokiAmBe
+    log.write('AmBeSourceGen: table.txt: 0.4000 neutrons per source neutron in 0 - 1e+09 eV leaving through ...\n')
+r2 = writehdf5('chain', '-o', 'ambe2.h5')
+expected_rate = 0.4 * 2.2e6 / 10
+with h5py.File('ambe.h5') as f, h5py.File('ambe2.h5') as f2:
+    for name, h in (('--ambe-yield', f), ('the log of a chain directory', f2)):
+        g = h['entry/loki_detector_0']
+        check(np.isclose(h['entry'].attrs['rate_1Ci_per_count_per_s'], expected_rate)
+              and np.allclose(g['rate_1Ci'][:], g['counts'][:] * expected_rate), f'AmBe rate at 1 Ci, yield from {name}')
+sys.exit(1 if failed else 0)
+EOF

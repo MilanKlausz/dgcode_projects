@@ -135,6 +135,7 @@ class AmBeSourceGen(G4CustomPyGen.GenBase):
         self.yield_per_source_neutron = sum(selected)
         self._surface_cdf = _cdf(selected)
         self._radius_cm, self._height_cm = read_moderator_size(path)
+        # (the yield in this line is read by LokiOutput/python/AmBeRate.py)
         parts = ", ".join(f"{s} {self._samplers[s].selected:.4f}" for s in self._surfaces)
         print(f"AmBeSourceGen: {name}: {self.yield_per_source_neutron:.4f} neutrons per source neutron below "
               f"{self.max_energy_eV:g} eV leaving the moderator ({parts}); one generated neutron = "

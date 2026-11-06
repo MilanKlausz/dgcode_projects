@@ -2,6 +2,7 @@ bcsloki_sans.shist:
   bank_lambda: filled
   bank_lambda_hit: filled
   h_neutron_pixel_hit: filled
+  h_neutron_pixel_hit_w2: filled
   h_neutron_pixel_rear_hit: filled
   layer_lambda: filled
   layer_lambda_hit: filled

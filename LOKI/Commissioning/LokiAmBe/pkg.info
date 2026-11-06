@@ -8,6 +8,9 @@ measurements with such a source:
   sb_lokiambe_sim event_gen=ambe x_meters=.. y_meters=.. z_meters=.. [...]
   sb_lokiambe_simanachain <dir> event_gen=ambe [...]
 
+The simulated counts per pixel are written to a file by sb_lokioutput_writehdf5
+(LokiOutput).
+
 python/AmBeSourceGen.py: the generator (neutrons leaving the moderator surface,
 with the spectra and angular distributions of a table in data/).
 

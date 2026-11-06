@@ -1,0 +1,13 @@
+package(USEPKG LOKI G4GeoLoki SimpleHists USEEXT h5py)
+
+######################################################################
+
+Output files of LOKI simulations for the ESS data reduction tools (scipp):
+sb_lokioutput_writehdf5 writes the simulated counts per pixel of analysis outputs
+(sb_loki_ana) into an HDF5 file readable with h5py and scipp (see
+python/Hdf5Output.py and data/hdf5_scipp_snippet.py).
+
+Needs the Python module h5py (extdeps/ExtDep_h5py.cmake): without it, this
+package is not built.
+
+Primary author: milan.klausz@ess.eu
