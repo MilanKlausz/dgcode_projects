@@ -221,6 +221,8 @@ std::map<int, std::array<double,3>> BankCalibration::parseShifts(const std::stri
     for (const double value : shift)
       if (!std::isfinite(value))
         throw std::runtime_error("BankCalibration: invalid bank shift '" + item + "'");
+    if (bankId == 0 && shift[2] != 0.0)
+      throw std::runtime_error("BankCalibration: the z of the rear bank (0) is rear_detector_distance_m, not a shift: '" + item + "'");
     out[bankId] = shift;
   }
   return out;

@@ -28,15 +28,3 @@
   OK: on the surface of the cylinder (radius 13 cm, height 26 cm)
   OK: the share of each surface as in the table
   OK: going outwards, peaked along the normal
-  OK: the simulation runs
-  side only, isotropic: distance from the axis 13.000 - 13.000 cm, mean cos to the outward normal 0.50
-  OK: on the side, isotropic in the outward hemisphere
-  OK: the simulation runs
-  with moderator_radius_cm=8 moderator_height_cm=20: distance from the axis 0.501 - 8.000 cm, height -10.000 - 10.000 cm
-  OK: the given moderator size instead of the table header
-4. direction biasing (aim_half_angle_deg): the mean weight = the fraction of the unbiased directions in the cone
-  OK: the simulation runs
-  OK: the simulation runs
-  unbiased: fraction in the 30 deg cone 0.1059 +- 0.0023; biased: mean weight 0.1051 +- 0.0027
-  OK: all biased directions in the cone
-  OK: mean weight = unbiased fraction in the cone

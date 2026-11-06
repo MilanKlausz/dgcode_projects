@@ -10,6 +10,9 @@
 #include "G4Vector3D.hh"
 #include "G4SubtractionSolid.hh"
 #include "G4AffineTransform.hh"
+#include "G4LogicalVolumeStore.hh"
+#include "G4VisAttributes.hh"
+#include <fnmatch.h>
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
@@ -64,6 +67,7 @@ private:
   void placeAbsorberPlatesOnBanks(G4LogicalVolume* lvWorld);
   void placeSourceCylinder(G4LogicalVolume* lvWorld, G4Material* material);
   void placeVacuumTank(G4LogicalVolume* lvWorld);
+  void highlightComponents();
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
@@ -189,9 +193,9 @@ GeoBCS::GeoBCS()
   // detector packs not on the detector: "bank:pack,pack;bank:..." (pack numbers in the bank, 0 = the pack of tubes 0-1 of
   // each layer); their pixels get no hits
   addParameterString("absent_packs", "");
-  // design masks drawn in colour in the viewers (display only, same format as boron_mask_exclude): red, and orange
-  addParameterString("highlight_boron_masks", "");
-  addParameterString("highlight_boron_masks_2", "");
+  // volumes drawn in red in the viewers (display only): volume names separated by commas, * matches any text, e.g.
+  // "BoronMask-5-*,TubeWall-*" (a volume used at several places is highlighted at all of them)
+  addParameterString("highlight_components", "");
   // a cylinder (vertical axis) of the world material marking the source moderator, for the visualisation only (no effect
   // on the physics, but it must not overlap other volumes in a simulation; radius 0: none)
   addParameterDouble("show_source_cylinder_radius_cm", 0.0, 0.0, 100.0);
@@ -234,7 +238,7 @@ GeoBCS::GeoBCS()
   // banks moved from their calibrated positions (e.g. on their rails for a measurement): "bank:dx,dy,dz;..." [mm, world
   // frame], e.g. "2:0,0,700;4:0,0,700"; the absorber strips and plates of a shifted bank (given for its calibrated
   // position) move with it; the analysis gets the shifted placements with the recorded calibration text. The z of the
-  // rear bank (0) is rear_detector_distance_m, not shifted here (a dz of bank 0 only moves its absorbers)
+  // rear bank (0) is rear_detector_distance_m: a dz of bank 0 is an error
   addParameterString("bank_shifts_mm", "");
 
   addParameterString("world_material","G4_Vacuum");
@@ -348,12 +352,10 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     const std::string maskName = BoronMasks::getName(bankId, maskId);
     const auto maskSize = BoronMasks::getSizeInBankFrame(bankId, maskId);
     const auto maskPosition = banks->getBoronMaskPositionInBankFrame(bankId, maskId);
-    const G4Colour maskColour = isListed("highlight_boron_masks", bankId, maskId) ? G4Colour(1, 0, 0)
-                              : isListed("highlight_boron_masks_2", bankId, maskId) ? G4Colour(1, 0.5, 0) : BLACK;
     place(new G4Box(maskName, 0.5*maskSize[0], 0.5*maskSize[1], 0.5*maskSize[2]),
             BoronMasks::maskMaterial,
             maskPosition[0], maskPosition[1], maskPosition[2],
-            lv_bank, maskColour, -2, 0, new G4RotationMatrix(0, 0, BoronMasks::getRotation(bankId, maskId)));
+            lv_bank, BLACK, -2, 0, new G4RotationMatrix(0, 0, BoronMasks::getRotation(bankId, maskId)));
   }
 
   // Add Beamstop to the Rear Bank volume
@@ -608,6 +610,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   placeAbsorberPlatesOnBanks(lvWorld);
   placeSourceCylinder(lvWorld, world_material);
   placeVacuumTank(lvWorld);
+  highlightComponents();
 
   delete banks;
   return pvWorld;
@@ -707,6 +710,24 @@ void GeoBCS::placeVacuumTank(G4LogicalVolume* lvWorld) {
   }
 }
 
+// The volumes of highlight_components in red, in all the viewers
+void GeoBCS::highlightComponents() {
+  auto red = new G4VisAttributes(G4Colour(1, 0, 0));
+  std::stringstream patterns(getParameterString("highlight_components"));
+  std::string pattern;
+  while (std::getline(patterns, pattern, ',')) {
+    int matches = 0;
+    for (auto lv : *G4LogicalVolumeStore::GetInstance())
+      if (fnmatch(pattern.c_str(), lv->GetName().c_str(), 0) == 0) {
+        lv->SetVisAttributes(red);
+        ++matches;
+      }
+    if (matches)
+      printf("GeoBCSBanks: highlight_components %s: %d volumes\n", pattern.c_str(), matches);
+    else
+      printf("WARNING: highlight_components %s: no such volume\n", pattern.c_str());
+  }
+}
 
 bool GeoBCS::isListed(const std::string& parameter, int bankId, int id) {
   std::stringstream items(getParameterString(parameter));

@@ -19,8 +19,8 @@ public:
   /// several masks of a bank can be boxes of the same part, e.g. the three top parts of a front bank: SI-7615-103).
   static std::string getDrawing(const int bankId, const int maskId);
   /// The volume name: "BoronMask-<bank>-<drawing>", with ".<k>" if the drawing occurs more than once in the bank (the
-  /// k-th such mask in the order of the mask ids, from 0). The mask ids (parameters boron_mask_exclude,
-  /// highlight_boron_masks) are the indices of the tables in BoronMasks.cc.
+  /// k-th such mask in the order of the mask ids, from 0). The mask ids (parameter boron_mask_exclude) are the indices
+  /// of the tables in BoronMasks.cc.
   static std::string getName(const int bankId, const int maskId);
   /// The beamstop (bank 0, beamstop_id; no CAD part, sizes from ESS-1178830).
   static const std::string beamstopName;

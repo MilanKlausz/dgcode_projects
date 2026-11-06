@@ -14,4 +14,7 @@ Further parameters on the command line replace those of the setup.
 The source is in LokiAmBe, the counts per pixel go to a file with
 sb_lokioutput_writehdf5 (LokiOutput).
 
+data/hdf5_final_runs_example.sh: example, the HDF5 files of the final simulations
+of the setups.
+
 Primary author: milan.klausz@ess.eu

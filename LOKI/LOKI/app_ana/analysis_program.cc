@@ -214,7 +214,6 @@ int main(int argc, char**argv) {
              "instrument definition) assume the nominal geometry (%s): its pixel positions in Mantid would be wrong "
              "(see LokiMantid/python/workspaceCreator.py).\n", bankCalibrationName.c_str(), BankCalibration::nominalName.c_str());
     // MCPL input without a universal weight (e.g. the McStas weights): the detection events keep the weights
-    // (biased AmBe runs: the histograms use the weights, detectionEvents.mcpl stores weight 1)
     const bool weighted = gen.getName()=="G4MCPLPlugins/MCPLGen"
       && (!userData.count("mcpl_universal_weight") || std::stod(userData["mcpl_universal_weight"]) == 0.0);
     detectionFile = new DetectionFileCreator("detectionEvents.mcpl", userData, weighted);

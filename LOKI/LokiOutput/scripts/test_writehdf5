@@ -90,12 +90,21 @@ old.remove(H.PIXEL_W2_HIST)
 old.saveToFile('old.shist', True)
 r = writehdf5('old.shist', '-o', 'old.h5')
 check(r.returncode != 0 and 'no recorded geometry' in r.stderr, 'older output without the given geometry: error')
-r = writehdf5('old.shist', '-o', 'old.h5', '--rear-detector-distance', str(geometry['rear_detector_distance_m']),
-              '--bank-calibration', geometry['bank_calibration'])
+old_geometry = ('--rear-detector-distance', str(geometry['rear_detector_distance_m']), '--bank-calibration')
+r = writehdf5('old.shist', '-o', 'old.h5', *old_geometry, geometry['bank_calibration'])
 with h5py.File('old.h5') as f:
-    check(r.returncode == 0 and 'counts_variance_note' in f['entry'].attrs
+    check(r.returncode == 0 and 'WARNING: older analysis output' in r.stdout and 'geometry_note' in f['entry'].attrs
+          and 'counts_variance_note' in f['entry'].attrs
           and np.allclose(f['entry/loki_detector_0/x_position'][:], positions[0][:, 0]),
-          'older output with the given geometry (same positions; variances = counts, noted)')
+          'older output with the given geometry (a warning; same positions; variances = counts, noted)')
+writehdf5('old.shist', '-o', 'old0.h5', *old_geometry, '2026-September-SAM-606')
+r = writehdf5('old.shist', '-o', 'oldshift.h5', *old_geometry, '2026-September-SAM-606', '--bank-shifts', '2:0,0,570')
+with h5py.File('old0.h5') as f0, h5py.File('oldshift.h5') as f:
+    z = {b: f[f'entry/loki_detector_{b}/z_position'][:] - f0[f'entry/loki_detector_{b}/z_position'][:] for b in (1, 2)}
+    check(r.returncode == 0 and 'bank shifts: 2:0,0,570' in r.stdout and np.allclose(z[2], 0.57) and np.all(z[1] == 0),
+          'older output with --bank-shifts: only bank 2 is moved')
+r = writehdf5('old.shist', '-o', 'bad.h5', *old_geometry, '2026-September-SAM-606', '--bank-shifts', '0:0,0,5')
+check(r.returncode != 0 and 'rear_detector_distance_m' in r.stderr, 'error for a wrong bank shift')
 
 # the AmBe rate at 1 Ci: with --ambe-yield, and from the log of a simanachain directory (also with --chainmult: runsim_part*)
 r = writehdf5('filled.shist', '-o', 'ambe.h5', '--ambe-yield', '0.4')

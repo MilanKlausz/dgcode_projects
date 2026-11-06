@@ -24,6 +24,10 @@ The file (h5py and scipp friendly; NeXus-like names, but not a NeXus file):
       rate_1Ci          (n,) float64  the counts as a rate [1/s] for a 1 Ci source
   and the /entry attributes neutrons_per_source_event and rate_1Ci_per_count_per_s.
 
+Older analysis outputs (no h_neutron_pixel_hit_w2: e.g. the final runs of the detector test on LUMI, whose GRIFF files
+are gone) do not record the geometry: give it with --rear-detector-distance, --bank-calibration and, for moved banks,
+--bank-shifts, as in the simulation (a WARNING reminds of this); their counts_variance is the counts.
+
 Loading with scipp (h5py + scipp, outside dgcode): LokiOutput/data/hdf5_scipp_snippet.py.
 """
 import datetime
@@ -99,7 +103,8 @@ def _read_output(path):
 
 def read_counts(paths, given_geometry=None):
     """Add up the pixel counts of the analysis outputs. given_geometry: for outputs without the recorded geometry (older
-    analyses): rear_detector_distance_m and bank_calibration (the straw pixel number is the histogram binning)."""
+    analyses): rear_detector_distance_m, bank_calibration and optionally bank_shifts_mm (the straw pixel number is the
+    histogram binning)."""
     counts = variances = recorded = None
     n_events = 0.0
     sources = []
@@ -129,7 +134,8 @@ def read_counts(paths, given_geometry=None):
                          'rear detector distance and the bank calibration of the simulation')
     geometry = dict(rear_detector_distance_m=float(given_geometry['rear_detector_distance_m']),
                     straw_pixel_number=pixels_per_straw, bank_calibration=given_geometry['bank_calibration'],
-                    bank_calibration_text=None)
+                    bank_calibration_text=LokiAim.bankCalibrationText(given_geometry['bank_calibration'],
+                                                                      given_geometry.get('bank_shifts_mm', '')))
     return SimulatedCounts(counts, variances, n_events, geometry, sources)
 
 
@@ -205,6 +211,7 @@ def write(counts, out, attributes=None, scaled_counts=None):
         if counts.variances is None:
             e.attrs['counts_variance_note'] = ('analysis output without the squared weights: counts_variance = counts '
                                                '(right for unweighted events only)')
+            e.attrs['geometry_note'] = 'older analysis output: the geometry was given when writing this file, not recorded'
         for key, value in (attributes or {}).items():
             e.attrs[key] = value
         variances = counts.variances if counts.variances is not None else counts.counts
@@ -231,6 +238,8 @@ def main(argv=None):
                         help='only for analysis outputs without the recorded geometry: rear_detector_distance_m')
     parser.add_argument('--bank-calibration', default=None, metavar='NAME',
                         help='only for analysis outputs without the recorded geometry: bank_calibration')
+    parser.add_argument('--bank-shifts', default=None, metavar='SHIFTS',
+                        help='only for analysis outputs without the recorded geometry: bank_shifts_mm')
     args = parser.parse_intermixed_args(argv)
     inputs = [i for i in args.inputs if not _is_attribute(i)]
     attributes = dict(i.split('=', 1) for i in args.inputs if _is_attribute(i))
@@ -241,6 +250,8 @@ def main(argv=None):
         given_geometry['rear_detector_distance_m'] = args.rear_detector_distance
     if args.bank_calibration is not None:
         given_geometry['bank_calibration'] = args.bank_calibration
+    if args.bank_shifts is not None:
+        given_geometry['bank_shifts_mm'] = args.bank_shifts
     rate_note = ''
     scaled_counts = {}
     try:
@@ -252,12 +263,17 @@ def main(argv=None):
             attributes = dict(neutrons_per_source_event=ambe_yield, rate_1Ci_per_count_per_s=rate, **attributes)
             rate_note = f'; AmBe: 1 count = {rate:.6g} /s at 1 Ci'
         write(counts, args.output, attributes, scaled_counts)
-    except (ValueError, KeyError) as error:
+    except (ValueError, KeyError, RuntimeError) as error:
         parser.exit(1, f'ERROR: {error}\n')
     print(f'Created {args.output}: {len(inputs)} analysis output(s), {counts.n_events:g} source events, '
           f'{counts.counts.sum():g} counts (sum of weights), bank calibration {counts.geometry["bank_calibration"]}, '
           f'rear detector distance {counts.geometry["rear_detector_distance_m"]:g} m, '
           f'{counts.geometry["straw_pixel_number"]} pixels per straw{rate_note}')
+    if counts.variances is None:
+        print(f'WARNING: older analysis output (no {PIXEL_W2_HIST}): the geometry is the one given here, not recorded by '
+              f'the simulation (bank shifts: {args.bank_shifts or "none"}); check that it is the geometry of the simulation '
+              '(wrong values give wrong pixel positions, without any error). counts_variance = counts: right for '
+              'unweighted events only.')
 
 
 if __name__ == '__main__':

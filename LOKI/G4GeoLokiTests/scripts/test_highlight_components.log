@@ -1,0 +1,3 @@
+GeoBCSBanks: highlight_components BoronMask-5-*: 8 volumes
+GeoBCSBanks: highlight_components TubeWall-*: 224 volumes
+WARNING: highlight_components NoSuchVolume*: no such volume

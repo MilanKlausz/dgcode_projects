@@ -182,7 +182,7 @@ GeoBCSBanks: bank 4 shifted from its bank_calibration position by (0, 0, 570) mm
 GeoBCSBanks: absorber strip in bank 2: 533.407 x 38.2 x 1 mm, depth -148.9 to -92.7 mm in the bank frame (tilted by 6.0 deg from the bank front)
 GeoBCSBanks: absorber plate in bank 7 on pack 0 (parallel to the packs, 0.5 mm from its face): 299.981 x 70 x 1 mm, turned by -151.3 deg from the tube direction
 # banks shifted from this calibration (bank_shifts_mm): 2:0,0,570;4:0,0,570
-AmBeSourceGen: ambe_hdpe_d26cm_h26cm_spectrum.txt: 0.4034 neutrons per source neutron in 0 - 1e+09 eV leaving through the generated surfaces (side 0.2948, top 0.0543, bottom 0.0543); one generated neutron = 2.4791 source neutrons; directions: moderator; moderator radius 13 cm, height 26 cm
+AmBeSourceGen: ambe_hdpe_d26cm_h26cm_spectrum.txt: 0.4034 neutrons per source neutron below 1e+09 eV leaving the moderator (side 0.2948, top 0.0543, bottom 0.0543); one generated neutron = 2.4791 source neutrons; moderator radius 13 cm, height 26 cm
   overlap checks: 6580, not OK: 0
 GriffDataReader opened file simC.griff
   OK: setup C and the bank shifts in the GRIFF metadata
@@ -192,7 +192,9 @@ GeoBCSBanks: bank 4 shifted from its bank_calibration position by (0, 0, 570) mm
 GeoBCSBanks: absorber strip in bank 2: 482.177 x 45 x 1 mm, depth -148.9 to -92.7 mm in the bank frame (tilted by 6.7 deg from the bank front)
 GeoBCSBanks: absorber plate in bank 7 on pack 0 (parallel to the packs, 0.5 mm from its face): 299.981 x 70 x 1 mm, turned by -151.3 deg from the tube direction
 # banks shifted from this calibration (bank_shifts_mm): 2:0,0,570;4:0,0,570
-AmBeSourceGen: ambe_hdpe_d26cm_h26cm_spectrum.txt: 0.4034 neutrons per source neutron in 0 - 1e+09 eV leaving through the generated surfaces (side 0.2948, top 0.0543, bottom 0.0543); one generated neutron = 2.4791 source neutrons; directions: moderator; moderator radius 13 cm, height 26 cm
+AmBeSourceGen: ambe_hdpe_d26cm_h26cm_spectrum.txt: 0.4034 neutrons per source neutron below 1e+09 eV leaving the moderator (side 0.2948, top 0.0543, bottom 0.0543); one generated neutron = 2.4791 source neutrons; moderator radius 13 cm, height 26 cm
   overlap checks: 6580, not OK: 0
 GriffDataReader opened file simE.griff
   OK: setup E and the bank shifts in the GRIFF metadata
+  BankCalibration: the z of the rear bank (0) is rear_detector_distance_m, not a shift: '0:0,0,5'
+  OK: bank_shifts_mm of bank 0

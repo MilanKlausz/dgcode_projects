@@ -25,6 +25,8 @@ Created out.h5: 2 analysis output(s), 20 source events, 8 counts (sum of weights
   OK: tube and straw indices = those of the geometry (300 random pixels)
   OK: error for outputs of different geometries
   OK: older output without the given geometry: error
-  OK: older output with the given geometry (same positions; variances = counts, noted)
+  OK: older output with the given geometry (a warning; same positions; variances = counts, noted)
+  OK: older output with --bank-shifts: only bank 2 is moved
+  OK: error for a wrong bank shift
   OK: AmBe rate at 1 Ci, yield from --ambe-yield
   OK: AmBe rate at 1 Ci, yield from the log of a chain directory

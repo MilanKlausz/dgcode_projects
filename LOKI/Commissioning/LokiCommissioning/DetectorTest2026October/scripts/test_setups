@@ -49,3 +49,18 @@ sys.exit(0 if ok else 1)
 PYEOF
     [ $? == 0 ] || exit 1
 done
+
+# the z of the rear bank is rear_detector_distance_m: a dz of bank 0 is an error, its dx and dy are not
+python3 - <<'PYEOF' || exit 1
+import sys
+import G4GeoLoki.LokiAimHelper as LokiAim
+calibration = '2026-September-SAM-606'
+ok = '# banks shifted' in LokiAim.bankCalibrationText(calibration, '0:1,2,0')
+try:
+    LokiAim.bankCalibrationText(calibration, '0:0,0,5')
+    ok = False
+except RuntimeError as error:
+    print(f'  {error}')
+print(f"  {'OK' if ok else 'FAILED'}: bank_shifts_mm of bank 0")
+sys.exit(0 if ok else 1)
+PYEOF
