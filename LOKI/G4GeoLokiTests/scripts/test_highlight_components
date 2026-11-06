@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+# The display option highlight_components of GeoBCSBanks: the volumes matching the names (with *) are counted in the
+# output of the geometry, and a name without a volume gives a warning. The colour itself is seen only in the viewers.
+
+import G4GeoLoki.GeoBCSBanks as GEO
+import G4GeoLokiTests.TestUtils as TU
+from G4GeoLokiTests.testhelpers import captured_fd_output
+
+geo = GEO.create()
+geo.highlight_components = 'BoronMask-5-*,TubeWall-*,NoSuchVolume*'
+with captured_fd_output() as lines:
+    TU.construct_world(geo)
+lines = [line.rstrip() for line in lines if 'highlight_components' in line]
+print('\n'.join(lines))
+expected = ('highlight_components BoronMask-5-*: ', 'highlight_components TubeWall-*: ', 'WARNING: highlight_components NoSuchVolume*')
+if len(lines) != 3 or not all(e in line for e, line in zip(expected, lines)):
+    raise SystemExit('TEST FAILED')

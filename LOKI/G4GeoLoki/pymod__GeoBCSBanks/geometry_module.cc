@@ -10,12 +10,17 @@
 #include "G4Vector3D.hh"
 #include "G4SubtractionSolid.hh"
 #include "G4AffineTransform.hh"
+#include "G4LogicalVolumeStore.hh"
+#include "G4VisAttributes.hh"
+#include <fnmatch.h>
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
 #include <string>
 #include <cassert>
+#include <set>
 #include <vector>
+#include <sstream>
 
 #include "G4GeoLoki/BcsBanks.hh"
 
@@ -36,13 +41,55 @@ private:
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
   G4LogicalVolume * createBankLV(int bankId);
   G4LogicalVolume * createTriangularMaskLV(int maskId);
+  bool hasBoronMasks(int bankId);
+  // an id listed for the bank in a parameter of the format "bank:id,id;bank:..."
+  bool isListed(const std::string& parameter, int bankId, int id);
   void placeRearCalibrationMask(G4LogicalVolume* lvBank);
+  void placeSourceCylinder(G4LogicalVolume* lvWorld, G4Material* material);
+  void highlightComponents();
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
 SBLDPY_MODULE( _GeoBCSBanks ) { G4Interfaces::geoToPy<GeoBCS>( m ); }
 
 namespace {
+  // the banks of a bank list parameter: "all", "none" (or empty), or comma separated ids and ranges, e.g. "0,5-8"
+  std::set<int> parseBankList(const std::string& text) {
+    const int numberOfBanks = 9;
+    std::set<int> banks;
+    if (text == "all") {
+      for (int b = 0; b < numberOfBanks; b++)
+        banks.insert(b);
+      return banks;
+    }
+    if (text.empty() || text == "none")
+      return banks;
+    const auto toInt = [](const std::string& number) {
+      size_t used = 0;
+      const int value = std::stoi(number, &used);
+      if (used != number.size())
+        throw std::invalid_argument(number);
+      return value;
+    };
+    std::stringstream items(text);
+    std::string item;
+    while (std::getline(items, item, ',')) {
+      const auto dash = item.find('-');
+      try {
+        const int first = toInt(item.substr(0, dash));
+        const int last = dash == std::string::npos ? first : toInt(item.substr(dash + 1));
+        if (first < 0 || last >= numberOfBanks || first > last)
+          throw std::out_of_range(item);
+        for (int b = first; b <= last; b++)
+          banks.insert(b);
+      }
+      catch (const std::logic_error&) {
+        throw std::runtime_error("invalid bank list \"" + text + "\" (expected all, none, or ids and ranges such as 0,5-8)");
+      }
+    }
+    return banks;
+  }
+
   // object rotation of a bank (the columns are the bank-local axes in the world)
   G4RotationMatrix toG4Rotation(const BankTransform& transform) {
     const auto& R = transform.rotation;
@@ -68,6 +115,27 @@ GeoBCS::GeoBCS()
   // 50% polyurethane varnish (approximated as C25H42N2O6, 1.2 g/cm3) + 50% Gd2O3 (7.41 g/cm3) by weight
   addParameterString("calibration_paint_material", "solid::Gd10C100H167N8O39/2.07gcm3");
   addParameterString("calibration_plate_material", "G4_Al");
+  // the B4C masks of the banks (the rectangular masks of each bank and the triangular masks of banks 5 and 7; not the
+  // beamstop): "all" (the design), "none", or a bank list as above
+  addParameterString("boron_mask_banks", "all");
+  // the triangular B4C masks of banks 5 and 7 (part of their design masks; switch them off separately)
+  addParameterBoolean("with_triangular_masks", true);
+  // individual design masks not present: "bank:mask,mask;bank:..." (the mask ids: the indices of the mask tables of
+  // BoronMasks.cc; the volume names are BoronMask-<bank>-<CAD drawing>[.<k>], see BoronMasks::getName)
+  addParameterString("boron_mask_exclude", "");
+  // detector packs not on the detector: "bank:pack,pack;bank:..." (pack numbers in the bank, 0 = the pack of tubes 0-1 of
+  // each layer); their pixels get no hits
+  addParameterString("absent_packs", "");
+  // volumes drawn in red in the viewers (display only): volume names separated by commas, * matches any text, e.g.
+  // "BoronMask-5-*,TubeWall-*" (a volume used at several places is highlighted at all of them)
+  addParameterString("highlight_components", "");
+  // a cylinder (vertical axis) of the world material marking the source moderator, for the visualisation only (no effect
+  // on the physics, but it must not overlap other volumes in a simulation; radius 0: none)
+  addParameterDouble("show_source_cylinder_radius_cm", 0.0, 0.0, 100.0);
+  addParameterDouble("show_source_cylinder_height_cm", 27.0, 0.1, 200.0);
+  addParameterDouble("show_source_cylinder_x_meters", 0.0, -5.0, 5.0);
+  addParameterDouble("show_source_cylinder_y_meters", 0.0, -5.0, 5.0);
+  addParameterDouble("show_source_cylinder_z_meters", 0.0, -5.0, 15.0);
 
   // bank placements: "nominal-geant4-geometry" or the name of a calibration in G4GeoLoki/data/bank_calibration_<name>.txt
   // (or the path of such a file), see G4GeoLoki/BankCalibration.hh
@@ -78,6 +146,8 @@ GeoBCS::GeoBCS()
   addParameterString("bank_shifts_mm", "");
 
   addParameterString("world_material","G4_Vacuum");
+  // the gas around the tubes inside the bank and pack volumes (the measurements at atmospheric pressure: G4_AIR)
+  addParameterString("pack_fill_material","G4_Vacuum");
   addParameterString("B4C_panel_material","MAT_B4C:b10_enrichment=0.95"); // the B4C panels behind the tubes
 }
 
@@ -111,7 +181,7 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
   // The PackBoxWidth corresponds to the size of the volume encapsulating the electronics on the sides as well, not just the detectors, but that would cause collision with the calibration slits, so a multiplication factor of 0.799 is applied, to get a volume just large enough to fit in the detectors in the front.
   auto lv_pack_box = new G4LogicalVolume(
     new G4Para("EmptyPackBox", 0.799*0.5*BcsPack::getPackBoxWidth(), 0.5*BcsPack::getPackBoxHeight(), 0.5 * strawLength + BcsPack::getPackBoxIdleLengthOnOneEnd(), packRotation, 0, 0),
-    BcsPack::packBoxFillMaterial, "EmptyPackBox");
+    getParameterMaterial("pack_fill_material"), "EmptyPackBox");
 
   /// Add 8 BCS detector tubes ///
   auto lv_front_tube = createTubeLV(BcsTube::getFrontTubeConverterThickness(), strawLength);
@@ -154,7 +224,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   const auto bankHalfSize = banks->getBankHalfSizeInBankFrame(bankId);
 
   auto lv_bank = new G4LogicalVolume(new G4Box("EmptyPanelBox", bankHalfSize[0], bankHalfSize[1], bankHalfSize[2]),
-                                     BcsPack::packBoxFillMaterial, "Bank");
+                                     getParameterMaterial("pack_fill_material"), "Bank");
 
   // override lv_bank to subtract some empty part of front left and right banks where front top and bottom banks would overlap with them
   // (the notch is computed from the bank placements in use, see BcsBanks::getBankNotch)
@@ -167,18 +237,22 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
     auto bankBoxCut = new G4Box("EmptyPanelBox", notch.halfSize[0], notch.halfSize[1], notch.halfSize[2]);
     auto bankBox = new G4SubtractionSolid("EmptyPanelBox", fullBankBox, bankBoxCut, 0, G4ThreeVector(notch.centre[0], notch.centre[1], notch.centre[2]));
 
-    lv_bank = new G4LogicalVolume(bankBox, BcsPack::packBoxFillMaterial, "Bank");
+    lv_bank = new G4LogicalVolume(bankBox, getParameterMaterial("pack_fill_material"), "Bank");
   }
 
   for (int packNumber = 0; packNumber < numberOfPacks; ++packNumber){
+    if (isListed("absent_packs", bankId, packNumber))
+      continue;  // a pack not on the detector (e.g. removed for repair): no tubes, no material
     auto lv_pack_box = createPackBoxLV(bankId, packNumber);
     const auto packPosition = banks->getPackPositionInBankFrame(bankId, packNumber);
     place(lv_pack_box, packPosition[0], packPosition[1], packPosition[2],
           lv_bank, G4Colour(0, 1, 1), -2, 0, new G4RotationMatrix(0, 0, packRotation));
   }
 
-  const int numberOfBoronMasks = BoronMasks::getNumberOfBoronMasks(bankId);
+  const int numberOfBoronMasks = hasBoronMasks(bankId) ? BoronMasks::getNumberOfBoronMasks(bankId) : 0;
   for (int maskId = 0; maskId < numberOfBoronMasks; ++maskId){
+    if (isListed("boron_mask_exclude", bankId, maskId))
+      continue;
     const std::string maskName = BoronMasks::getName(bankId, maskId);
     const auto maskSize = BoronMasks::getSizeInBankFrame(bankId, maskId);
     const auto maskPosition = banks->getBoronMaskPositionInBankFrame(bankId, maskId);
@@ -347,6 +421,8 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 
   // Add 4 triangular boron masks (added to the World instead of the banks)
   for (int maskId = 0; maskId <= 3; maskId++) {
+    if (!getParameterBoolean("with_triangular_masks") || !hasBoronMasks(BoronMasks::getBankIdOfTriangularMask(maskId)))
+      continue;
     auto lv_triangularMask = createTriangularMaskLV(maskId);
 
     // mounted on the front of bank 5 or 7: its placement in the bank frame, moved with the bank transform
@@ -363,11 +439,65 @@ G4VPhysicalVolume* GeoBCS::Construct(){
     place(lv_triangularMask, position[0], position[1], position[2], lvWorld, BLACK, -5, 0, rotation);
   }
 
+  placeSourceCylinder(lvWorld, world_material);
+  highlightComponents();
 
   delete banks;
   return pvWorld;
 }
 
+// The source cylinder for the visualisation (world material)
+void GeoBCS::placeSourceCylinder(G4LogicalVolume* lvWorld, G4Material* material) {
+  const double sourceRadius = getParameterDouble("show_source_cylinder_radius_cm") * Units::cm;
+  if (sourceRadius > 0) {
+    auto rotation = new G4RotationMatrix();
+    rotation->rotateX(90 * Units::deg);  // the G4Tubs axis (z) -> vertical (y)
+    place(new G4Tubs("SourceCylinder", 0, sourceRadius, 0.5 * getParameterDouble("show_source_cylinder_height_cm") * Units::cm, 0., 2 * M_PI),
+          material, getParameterDouble("show_source_cylinder_x_meters") * Units::m, getParameterDouble("show_source_cylinder_y_meters") * Units::m,
+          getParameterDouble("show_source_cylinder_z_meters") * Units::m, lvWorld, G4Colour(1, 1, 1), -9, 0, rotation);
+  }
+}
+
+// The volumes of highlight_components in red, in all the viewers
+void GeoBCS::highlightComponents() {
+  auto red = new G4VisAttributes(G4Colour(1, 0, 0));
+  std::stringstream patterns(getParameterString("highlight_components"));
+  std::string pattern;
+  while (std::getline(patterns, pattern, ',')) {
+    int matches = 0;
+    for (auto lv : *G4LogicalVolumeStore::GetInstance())
+      if (fnmatch(pattern.c_str(), lv->GetName().c_str(), 0) == 0) {
+        lv->SetVisAttributes(red);
+        ++matches;
+      }
+    if (matches)
+      printf("GeoBCSBanks: highlight_components %s: %d volumes\n", pattern.c_str(), matches);
+    else
+      printf("WARNING: highlight_components %s: no such volume\n", pattern.c_str());
+  }
+}
+
+bool GeoBCS::isListed(const std::string& parameter, int bankId, int id) {
+  std::stringstream items(getParameterString(parameter));
+  std::string item;
+  while (std::getline(items, item, ';')) {
+    const auto colon = item.find(':');
+    if (colon == std::string::npos)
+      throw std::runtime_error("invalid " + parameter + " item (bank:mask,mask): " + item);
+    if (std::stoi(item.substr(0, colon)) != bankId)
+      continue;
+    std::stringstream ids(item.substr(colon + 1));
+    std::string listed;
+    while (std::getline(ids, listed, ','))
+      if (std::stoi(listed) == id)
+        return true;
+  }
+  return false;
+}
+
+bool GeoBCS::hasBoronMasks(int bankId) {
+  return parseBankList(getParameterString("boron_mask_banks")).count(bankId) > 0;
+}
 
 bool GeoBCS::validateParameters() {
   // you can apply conditions to control the sanity of the geometry parameters and warn the user of possible mistakes
@@ -386,6 +516,13 @@ bool GeoBCS::validateParameters() {
   }
   catch (const std::exception& error) {
     printf("ERROR: Wrong bank_shifts_mm value: %s\n", error.what());
+    return false;
+  }
+  try {
+    parseBankList(getParameterString("boron_mask_banks"));
+  }
+  catch (const std::exception& error) {
+    printf("ERROR: %s\n", error.what());
     return false;
   }
   if(rear_detector_distance < 5.0 *Units::m) {
