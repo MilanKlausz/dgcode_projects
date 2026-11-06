@@ -157,11 +157,6 @@ std::array<double,3> BcsBanks::getBoronMaskPositionInBankFrame(const int bankId,
           getBoronMaskPosition(bankId, maskId, 0)};
 }
 
-std::array<double,3> BcsBanks::getCalibMaskPositionInBankFrame(CalibMasks::CalibMasksBase calibMask, const int bankId) const {
-  return {getCalibMaskPosition(calibMask, bankId, 2), getCalibMaskPosition(calibMask, bankId, 1),
-          getCalibMaskPosition(calibMask, bankId, 0)};
-}
-
 BcsBanks::PlacementInBank BcsBanks::getTriangularBoronMaskPlacementInBankFrame(const int maskId) {
   const int bankId = BoronMasks::getBankIdOfTriangularMask(maskId); // 5 or 7
   const double cutDir = BoronMasks::getCutDirOfTriangularMask(maskId, 1); // +1 (bank 5) or -1 (bank 7)
@@ -175,6 +170,10 @@ BcsBanks::PlacementInBank BcsBanks::getTriangularBoronMaskPlacementInBankFrame(c
   // (the thickness); bank 5 (top) and bank 7 (bottom) have opposite bank y and z axes (see bankSideDirection)
   placement.rotation = {{{0.0, 0.0, 1.0}, {0.0, -cutDir, 0.0}, {cutDir, 0.0, 0.0}}}; // rows; columns = the mask axes
   return placement;
+}
+
+double BcsBanks::getTubeFrontPositionInBankFrame(const int bankId) {
+  return -detectorSystemCentreOffsetInBank(bankId, 2);
 }
 
 double BcsBanks::getBankSize(const int bankId, const int axisIndex) {
@@ -338,19 +337,6 @@ double BcsBanks::getBoronMaskPosition(const int bankId, const int maskId, const 
     return - bankSizeHalf + position + 0.5*thickness + rotationCorrection;
   }
 }
-
-double BcsBanks::getCalibMaskPosition(CalibMasks::CalibMasksBase calibMask, const int bankId, const int axisIndex) const {
-  assert(0 <= axisIndex && axisIndex <= 2);
-  if((axisIndex == 0 && !isVertical(bankId)) || (axisIndex == 1 && isVertical(bankId))) {
-    return 0.5*getStrawLengthByBankId(bankId) - calibMask.getLeftTubeEndDistance() - 0.5*calibMask.getWidth();
-  }
-  else if((axisIndex == 0 && isVertical(bankId)) || (axisIndex == 1 && !isVertical(bankId))) {
-    return 0.0;
-  }
-  else{ //z direction
-    return - (detectorSystemCentreOffsetInBank(bankId, 2) + calibMask.getElevationFromTubeFront() + 0.5*calibMask.getThickness());
-  }
- }
 
 const double BcsBanks::beamstopSize[5][3] = { // width, height, thickness [mm] (from ESS-1178830 Table 4.6 Selected beamstop sizes)
     {30., 35., 1.},   // id = 1 ("includes transmission detector")

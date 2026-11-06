@@ -23,7 +23,7 @@
 # Run for the nominal geometry and for the 2026-September-SAM-606 bank calibration
 # (survey-based placements: geometry, aiming and analysis use the calibration), rear bank at
 # 5 m: every straw. The other configurations (rear bank distance, pixels per straw, beamstop,
-# calibration slits) only change the absorbers and the bank positions, not the straws inside a
+# rear calibration mask) only change the absorbers and the bank positions, not the straws inside a
 # tube (a calibration moves whole banks): there only the centre straw of every tube (faster).
 # Also checked: the exit point of every Converter crossing (the point the masking
 # analysis converts to a pixel id) gives a pixel of that same straw.
@@ -99,7 +99,7 @@ def run(title, rear_m, n, geo_args, calibration=NOMINAL, straws=range(NSTRAWS)):
                 print(f'  target pixel {target} (bank {b} tube {t} straw {s}) not crossed: {" ".join(crossings) or "no straws"}')
         elif found:
             nshadowed[b] += 1
-            shadowing[b][re.sub(r'^(BoronMask-\d)-\d+$', r'\1-*', found)] += 1
+            shadowing[b][re.sub(r'^(BoronMask-\d-\d+|CalibPaint-\d-SI-.*)$', lambda m: m.group(1).rsplit('-', 1)[0].split('-SI')[0] + '-*', found)] += 1
     chk.check(nfail == 0, f'{nfail} targets not crossed by their geantino')
     for b in sorted(ntargets):
         print(f'  bank {b}: {ntargets[b]} targets, all crossed: {"yes" if nfail == 0 else "NO"}, '
@@ -111,9 +111,9 @@ def run(title, rear_m, n, geo_args, calibration=NOMINAL, straws=range(NSTRAWS)):
 run('LOKI, rear 5 m', 5.0, 256, [])
 CENTRE_STRAW = (NSTRAWS // 2,)
 run('LOKI, rear 10 m, beamstop', 10.0, 512, ['beamstop_id=3'], straws=CENTRE_STRAW)
-run('LOKI, rear 7.3 m, calibration slits', 7.3, 64, ['with_calibration_slits=True'], straws=CENTRE_STRAW)
+run('LOKI, rear 7.3 m, rear calibration mask', 7.3, 64, ['with_rear_calibration_mask=True'], straws=CENTRE_STRAW)
 run('LOKI SAM-606 bank calibration, rear 5 m', 5.0, 256, [], calibration='2026-September-SAM-606')
-run('LOKI SAM-606 bank calibration, rear 10 m, beamstop, calibration slits', 10.0, 64,
-    ['beamstop_id=3', 'with_calibration_slits=True'], calibration='2026-September-SAM-606', straws=CENTRE_STRAW)
+run('LOKI SAM-606 bank calibration, rear 10 m, beamstop, rear calibration mask', 10.0, 64,
+    ['beamstop_id=3', 'with_rear_calibration_mask=True'], calibration='2026-September-SAM-606', straws=CENTRE_STRAW)
 
 chk.finish()

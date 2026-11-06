@@ -15,6 +15,7 @@
 #include <cmath>
 #include <string>
 #include <cassert>
+#include <vector>
 
 #include "G4GeoLoki/BcsBanks.hh"
 
@@ -34,7 +35,7 @@ private:
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
   G4LogicalVolume * createBankLV(int bankId);
   G4LogicalVolume * createTriangularMaskLV(int maskId);
-  G4LogicalVolume * createCalibrationMaskLV(CalibMasks::CalibMasksBase calibMask);
+  void placeRearCalibrationMask(G4LogicalVolume* lvBank);
 };
 
 // this line is necessary to be able to declare the geometry in the python simulation script
@@ -59,7 +60,13 @@ GeoBCS::GeoBCS()
   // declare all parameters that can be used from the command line,
   addParameterDouble("rear_detector_distance_m", 5.0, 4.0, 10.0); // default, min, max
   addParameterInt("beamstop_id", 0, 0, 5); // id [1-5] from ESS-1178830 Table 4.6 'Selected beamstop sizes' (0 = no beamstop)
-  addParameterBoolean("with_calibration_slits", false);
+  // the calibration mask of the rear bank (the manufactured plate, drawing SI-7615-993, see CalibMasks::RearPlate)
+  addParameterBoolean("with_rear_calibration_mask", false);
+  addParameterDouble("calibration_plate_gap_mm", 8.0, 0.0, 50.0);         // back of the 2 mm sheet - front of the tubes
+  addParameterDouble("calibration_paint_thickness_mm", 0.15, 0.0, 5.0);   // the Gd2O3 paint layer (not specified in the drawing)
+  // 50% polyurethane varnish (approximated as C25H42N2O6, 1.2 g/cm3) + 50% Gd2O3 (7.41 g/cm3) by weight
+  addParameterString("calibration_paint_material", "solid::Gd10C100H167N8O39/2.07gcm3");
+  addParameterString("calibration_plate_material", "G4_Al");
 
   // bank placements: "nominal-geant4-geometry" or the name of a calibration in G4GeoLoki/data/bank_calibration_<name>.txt
   // (or the path of such a file), see G4GeoLoki/BankCalibration.hh
@@ -130,32 +137,6 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
     }
   return lv_pack_box;
 }
-
-///////////  CREATE CALIBRATION SLIT LOGICAL VOLUME  //////////////////////////
-G4LogicalVolume *GeoBCS::createCalibrationMaskLV(CalibMasks::CalibMasksBase calibMask){
-  const std::string maskName = "BoronMask-"+calibMask.getName();
-  const double maskThicknessHalf = 0.5*calibMask.getThickness();
-  const double maskHeightHalf = 0.5*calibMask.getHeight();
-  const double maskFullWidthHalf = 0.5*calibMask.getWidth();
-
-  auto lv_calibrationMask = new G4LogicalVolume(new G4Box("EmptyCalibMaskBox", maskThicknessHalf, maskHeightHalf, maskFullWidthHalf), CalibMasks::maskBoxMaterial, "CalibMaskBox");
-
-  double offset = 0.0;
-  int i = 0;
-  const auto pattern = calibMask.getPattern();
-  for(auto part = pattern.begin(); part != pattern.end(); part++,i++ ) {
-    const double partWidth = *part;
-    if(i % 2 == 0) { //The pattern is: maskPart ,slit, maskPart, slit...
-      place(new G4Box(maskName, maskThicknessHalf, maskHeightHalf, 0.5*partWidth),
-          CalibMasks::maskMaterial,
-          0., 0., -maskFullWidthHalf + offset + 0.5*partWidth,
-          lv_calibrationMask, DARKPURPLE, -5, 0, new G4RotationMatrix());
-    }
-    offset += partWidth;
-  }
-  return lv_calibrationMask;
-}
-
 
 ///////////  CREATE DETECTOR BANK LOGICAL VOLUME  //////////////////////////
 G4LogicalVolume *GeoBCS::createBankLV(int bankId){
@@ -228,16 +209,8 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
           lv_bank, BLACK, -5, 0, new G4RotationMatrix());
   }
 
-  const bool withCalibrationSlits = getParameterBoolean("with_calibration_slits");
-  if (withCalibrationSlits) {
-    std::string calibMaskName = "lokiStandard-"+std::to_string(bankId);
-    const auto calibMask = CalibMasks::getCalibMask(calibMaskName);
-    auto lv_calibrationMask = createCalibrationMaskLV(calibMask);
-
-    const auto calibMaskPosition = banks->getCalibMaskPositionInBankFrame(calibMask, bankId);
-    place(lv_calibrationMask, calibMaskPosition[0], calibMaskPosition[1], calibMaskPosition[2],
-          lv_bank, PURPLE, -5, 0, new G4RotationMatrix());
-  }
+  if (bankId == 0 && getParameterBoolean("with_rear_calibration_mask"))
+    placeRearCalibrationMask(lv_bank);
 
   // An enlarged notch must not cut into the content of the bank (packs, masks): it is only meant to remove empty
   // space of the bank volume. (Conservative check with the bounding boxes of the daughters in the bank frame.)
@@ -273,6 +246,39 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
 
   return lv_bank;
  }
+
+// The REAR CALIBRATION MASK PLATE (drawing SI-7615-993), bank frame: x = depth (front at -0.5*depth), y = across the
+// tubes, z = along the tubes; centred on the bank
+void GeoBCS::placeRearCalibrationMask(G4LogicalVolume* lvBank) {
+  const double tubeFront = BcsBanks::getTubeFrontPositionInBankFrame(0);
+  const double gap = getParameterDouble("calibration_plate_gap_mm") * Units::mm;
+  using Plate = CalibMasks::RearPlate;
+  const double plateThickness = Plate::thickness * Units::mm;
+  const double faceHeight = Plate::faceHeight * Units::mm;
+  const double faceWidth = Plate::faceWidth * Units::mm;
+  const double paintThickness = getParameterDouble("calibration_paint_thickness_mm") * Units::mm;
+  const double plateX = tubeFront - gap - 0.5 * plateThickness;
+  place(new G4Box(Plate::getPlateName(), 0.5 * plateThickness, 0.5 * faceHeight, 0.5 * faceWidth),
+        getParameterMaterial("calibration_plate_material"), plateX, 0., 0., lvBank, G4Colour(0.75, 0.75, 0.75), -5, 0,
+        new G4RotationMatrix());
+  if (paintThickness > 0) {
+    // the paint between the side walls: paint strips and slits (Plate::getPaintPattern)
+    const std::vector<double> pattern = Plate::getPaintPattern();
+    const double paintX = plateX - 0.5 * plateThickness - 0.5 * paintThickness;
+    auto paintMaterial = getParameterMaterial("calibration_paint_material");
+    double offset = -0.5 * Plate::paintedWidth * Units::mm;
+    for (size_t i = 0; i < pattern.size(); ++i) {
+      const double w = pattern[i] * Units::mm;
+      if (i % 2 == 0)
+        place(new G4Box(Plate::getPaintName(static_cast<int>(i / 2)), 0.5 * paintThickness, 0.5 * faceHeight, 0.5 * w),
+              paintMaterial, paintX, 0., offset + 0.5 * w, lvBank, DARKPURPLE, -5, 0, new G4RotationMatrix());
+      offset += w;
+    }
+  }
+  printf("GeoBCSBanks: rear calibration mask SI-7615-993: 2 mm %s sheet %g mm in front of the tubes, %g mm %s paint, "
+         "slits 6 mm at +-50..+-450 mm\n", getParameterString("calibration_plate_material").c_str(), gap / Units::mm,
+         paintThickness / Units::mm, getParameterString("calibration_paint_material").c_str());
+}
 
 G4LogicalVolume *GeoBCS::createTriangularMaskLV(int maskId){
     //creating special triangular volume by subtraction of 2 boxes
@@ -347,6 +353,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
 
     place(lv_triangularMask, position[0], position[1], position[2], lvWorld, BLACK, -5, 0, rotation);
   }
+
 
   delete banks;
   return pvWorld;

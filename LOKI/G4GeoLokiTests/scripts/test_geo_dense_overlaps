@@ -9,12 +9,12 @@
 # follow banks 5 and 7.
 #
 # Also checked: 100k random surface points of every volume inside a bank (packs, boron masks,
-# calibration masks, beamstop) are inside the bank solid (for the banks 6 and 8: not in the notch);
+# rear calibration mask, beamstop) are inside the bank solid (for the banks 6 and 8: not in the notch);
 # printed: the smallest distance of the content of banks 6 and 8 from their notch. (The checks sample random
 # points: only robust numbers are printed, distances rounded down to 5 mm, depths to 10 mm.)
 #
 # Configurations: the nominal geometry and the 2026-September-SAM-606 bank calibration (with
-# and without beamstop / calibration slits).
+# and without beamstop / rear calibration mask).
 #
 # Sensitivity / notch checks with calibration files made here from the nominal placement:
 #  * bank 2 moved 400 mm towards bank 4: the overlap must be found;
@@ -76,10 +76,10 @@ def run(title, pars, expect_overlap=False):
     return notes
 
 run('nominal, defaults', dict())
-run('nominal, rear 10 m, beamstop 3, calibration slits', dict(rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True))
+run('nominal, rear 10 m, beamstop 3, rear calibration mask', dict(rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True))
 run('2026-September-SAM-606, defaults', dict(bank_calibration='2026-September-SAM-606'))
-run('2026-September-SAM-606, rear 10 m, beamstop 3, calibration slits',
-    dict(bank_calibration='2026-September-SAM-606', rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True))
+run('2026-September-SAM-606, rear 10 m, beamstop 3, rear calibration mask',
+    dict(bank_calibration='2026-September-SAM-606', rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True))
 
 # calibration files from the nominal placement, with one bank moved
 def nominal_bank_line(b):

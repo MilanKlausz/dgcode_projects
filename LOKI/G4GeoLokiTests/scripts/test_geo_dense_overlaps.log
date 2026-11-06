@@ -1,11 +1,11 @@
 nominal, defaults: 13 world volumes, construction check problems: 0, dense check overlaps: 0, bank content outside its bank: 0
     smallest distance of the bank content from the notch: bank 6 at least 30 mm (EmptyPackBox), bank 8 at least 30 mm (EmptyPackBox)
-nominal, rear 10 m, beamstop 3, calibration slits: 13 world volumes, construction check problems: 0, dense check overlaps: 0, bank content outside its bank: 0
-    smallest distance of the bank content from the notch: bank 6 at least 25 mm (CalibMaskBox), bank 8 at least 25 mm (CalibMaskBox)
+nominal, rear 10 m, beamstop 3, rear calibration mask: 13 world volumes, construction check problems: 0, dense check overlaps: 0, bank content outside its bank: 0
+    smallest distance of the bank content from the notch: bank 6 at least 30 mm (EmptyPackBox), bank 8 at least 30 mm (EmptyPackBox)
 2026-September-SAM-606, defaults: 13 world volumes, construction check problems: 0, dense check overlaps: 0, bank content outside its bank: 0
     smallest distance of the bank content from the notch: bank 6 at least 30 mm (EmptyPackBox), bank 8 at least 30 mm (EmptyPackBox)
-2026-September-SAM-606, rear 10 m, beamstop 3, calibration slits: 13 world volumes, construction check problems: 0, dense check overlaps: 0, bank content outside its bank: 0
-    smallest distance of the bank content from the notch: bank 6 at least 25 mm (CalibMaskBox), bank 8 at least 25 mm (CalibMaskBox)
+2026-September-SAM-606, rear 10 m, beamstop 3, rear calibration mask: 13 world volumes, construction check problems: 0, dense check overlaps: 0, bank content outside its bank: 0
+    smallest distance of the bank content from the notch: bank 6 at least 30 mm (EmptyPackBox), bank 8 at least 30 mm (EmptyPackBox)
 bank 2 moved 400 mm towards bank 4 (must overlap): 13 world volumes, construction check problems: 4, dense check overlaps: 2, bank content outside its bank: 0
     Bank:2 in Bank:4: many points, up to 100 mm deep (rounded)
     Bank:4 in Bank:2: many points, up to 100 mm deep (rounded)

@@ -37,7 +37,7 @@ default bank calibration (geometry parameter and scripts): 2026-September-SAM-60
   rear bank at 4 m (file made at 5 m): bank placements and pixel centres as nominal (< 1e-9 mm): True
   rear bank at 10 m (file made at 5 m): bank placements and pixel centres as nominal (< 1e-9 mm): True
   built geometry defaults: 21364 volumes, same volumes: True, global positions < 1e-9 mm: True, rotations < 1e-12: True
-  built geometry {'rear_detector_distance_m': 10.0, 'beamstop_id': 3, 'with_calibration_slits': True}: 21471 volumes, same volumes: True, global positions < 1e-9 mm: True, rotations < 1e-12: True
+  built geometry {'rear_detector_distance_m': 10.0, 'beamstop_id': 3, 'with_rear_calibration_mask': True}: 21377 volumes, same volumes: True, global positions < 1e-9 mm: True, rotations < 1e-12: True
   nominal-geant4-geometry: bank 6 box overlaps bank 5 box (inside the nominal notch, smallest margin 0.38 mm), notch nominal: True
   nominal-geant4-geometry: bank 8 box overlaps bank 7 box (inside the nominal notch, smallest margin 0.82 mm), notch nominal: True
 ==========================================================================================

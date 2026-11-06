@@ -6,38 +6,6 @@
 // NOTE: All values are expressed in [mm] unit
 
 
-//Planned calibration slit masks for LoKI, with 94 mm wide parts and 6 mm wide slits, at 7.6 mm from the detector front
-const CalibMasks::CalibMasksBase mask0("lokiStandard-0", 0.3, 1600.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask1("lokiStandard-1", 0.3, 450.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask2("lokiStandard-2", 0.3, 310.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask3("lokiStandard-3", 0.3, 450.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask4("lokiStandard-4", 0.3, 310.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask5("lokiStandard-5", 0.3, 780.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask6("lokiStandard-6", 0.3, 880.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask7("lokiStandard-7", 0.3, 540.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-const CalibMasks::CalibMasksBase mask8("lokiStandard-8", 0.3, 880.0, -47.0, 7.6,
-  {94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.,6., 94.});
-
-const std::map<std::string, CalibMasks::CalibMasksBase> CalibMasks::m_masks {
-  {mask0.getName(), mask0},
-  {mask1.getName(), mask1},
-  {mask2.getName(), mask2},
-  {mask3.getName(), mask3},
-  {mask4.getName(), mask4},
-  {mask5.getName(), mask5},
-  {mask6.getName(), mask6},
-  {mask7.getName(), mask7},
-  {mask8.getName(), mask8},
-};
-
 CalibMasks::CalibMasksBase::CalibMasksBase(std::string name, double thickness, double height, double leftTubeEndDistance, double elevationFromTubeFront, std::vector<double> pattern)
   : m_name(name),
     m_thickness(thickness),
@@ -46,10 +14,6 @@ CalibMasks::CalibMasksBase::CalibMasksBase(std::string name, double thickness, d
     m_elevationFromTubeFront((assert(elevationFromTubeFront >= 0.05), elevationFromTubeFront)),
     m_pattern(pattern)
 {
-}
-
-CalibMasks::CalibMasksBase CalibMasks::getCalibMask(std::string name){
-  return m_masks.find(name)->second;
 }
 
 std::string CalibMasks::CalibMasksBase::getName() const{
@@ -76,3 +40,27 @@ double CalibMasks::CalibMasksBase::getWidth() const{
 
 G4Material* CalibMasks::maskMaterial = NamedMaterialProvider::getMaterial("MAT_B4C:b10_enrichment=0.95");
 G4Material* CalibMasks::maskBoxMaterial = NamedMaterialProvider::getMaterial("G4_Vacuum");
+
+std::vector<double> CalibMasks::RearPlate::getPaintPattern() {
+  std::vector<double> pattern = {43.0};
+  for (int k = 0; k < 9; ++k) {
+    pattern.push_back(6.0);
+    pattern.push_back(94.0);
+  }
+  pattern.push_back(6.0);
+  pattern.push_back(43.0);
+  return pattern;
+}
+
+int CalibMasks::RearPlate::getNumberOfPaintStrips() {
+  return static_cast<int>(getPaintPattern().size() + 1) / 2;
+}
+
+std::string CalibMasks::RearPlate::getPlateName() {
+  return "CalibPlate-0-SI-7615-993";
+}
+
+std::string CalibMasks::RearPlate::getPaintName(const int k) {
+  assert(0 <= k && k < getNumberOfPaintStrips());
+  return "CalibPaint-0-SI-7615-993." + std::to_string(k);
+}

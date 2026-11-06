@@ -25,9 +25,9 @@ Total placements checked for overlaps: 6579
    StrawWall                        checked:  1568  problems: 0
    TubeWall                         checked:   896  problems: 0
 ================================================================================
-Configuration: bank_calibration=nominal-geant4-geometry, rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True
+Configuration: bank_calibration=nominal-geant4-geometry, rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True
 World daughters: 13
-Total placements checked for overlaps: 6686
+Total placements checked for overlaps: 6592
    AlPanel                          checked:   224  problems: 0
    B4CPanel                         checked:   336  problems: 0
    Bank                             checked:     9  problems: 0
@@ -41,20 +41,22 @@ Total placements checked for overlaps: 6686
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
    BoronMask-Beamstop               checked:     1  problems: 0
-   BoronMask-lokiStandard-0         checked:    11  problems: 0
-   BoronMask-lokiStandard-1         checked:    11  problems: 0
-   BoronMask-lokiStandard-2         checked:     6  problems: 0
-   BoronMask-lokiStandard-3         checked:    11  problems: 0
-   BoronMask-lokiStandard-4         checked:     6  problems: 0
-   BoronMask-lokiStandard-5         checked:    13  problems: 0
-   BoronMask-lokiStandard-6         checked:    13  problems: 0
-   BoronMask-lokiStandard-7         checked:    13  problems: 0
-   BoronMask-lokiStandard-8         checked:    13  problems: 0
    BoronMask-triangular-5-0         checked:     1  problems: 0
    BoronMask-triangular-5-1         checked:     1  problems: 0
    BoronMask-triangular-7-2         checked:     1  problems: 0
    BoronMask-triangular-7-3         checked:     1  problems: 0
-   CalibMaskBox                     checked:     9  problems: 0
+   CalibPaint-0-SI-7615-993.0       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.1       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.10      checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.2       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.3       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.4       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.5       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.6       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.7       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.8       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.9       checked:     1  problems: 0
+   CalibPlate-0-SI-7615-993         checked:     1  problems: 0
    Converter                        checked:  1568  problems: 0
    CountingGas                      checked:  1568  problems: 0
    EmptyPackBox                     checked:   112  problems: 0
@@ -88,9 +90,9 @@ Total placements checked for overlaps: 6579
    StrawWall                        checked:  1568  problems: 0
    TubeWall                         checked:   896  problems: 0
 ================================================================================
-Configuration: bank_calibration=2026-September-SAM-606, rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True
+Configuration: bank_calibration=2026-September-SAM-606, rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True
 World daughters: 13
-Total placements checked for overlaps: 6686
+Total placements checked for overlaps: 6592
    AlPanel                          checked:   224  problems: 0
    B4CPanel                         checked:   336  problems: 0
    Bank                             checked:     9  problems: 0
@@ -104,20 +106,22 @@ Total placements checked for overlaps: 6686
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
    BoronMask-Beamstop               checked:     1  problems: 0
-   BoronMask-lokiStandard-0         checked:    11  problems: 0
-   BoronMask-lokiStandard-1         checked:    11  problems: 0
-   BoronMask-lokiStandard-2         checked:     6  problems: 0
-   BoronMask-lokiStandard-3         checked:    11  problems: 0
-   BoronMask-lokiStandard-4         checked:     6  problems: 0
-   BoronMask-lokiStandard-5         checked:    13  problems: 0
-   BoronMask-lokiStandard-6         checked:    13  problems: 0
-   BoronMask-lokiStandard-7         checked:    13  problems: 0
-   BoronMask-lokiStandard-8         checked:    13  problems: 0
    BoronMask-triangular-5-0         checked:     1  problems: 0
    BoronMask-triangular-5-1         checked:     1  problems: 0
    BoronMask-triangular-7-2         checked:     1  problems: 0
    BoronMask-triangular-7-3         checked:     1  problems: 0
-   CalibMaskBox                     checked:     9  problems: 0
+   CalibPaint-0-SI-7615-993.0       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.1       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.10      checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.2       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.3       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.4       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.5       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.6       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.7       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.8       checked:     1  problems: 0
+   CalibPaint-0-SI-7615-993.9       checked:     1  problems: 0
+   CalibPlate-0-SI-7615-993         checked:     1  problems: 0
    Converter                        checked:  1568  problems: 0
    CountingGas                      checked:  1568  problems: 0
    EmptyPackBox                     checked:   112  problems: 0

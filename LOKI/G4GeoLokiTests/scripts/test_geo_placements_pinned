@@ -8,7 +8,7 @@
 # (rounded to 1e-9) of every physical volume (the whole tree: banks, packs, tubes, straws, masks,
 # ...), and a checksum of all AimHelper pixel centres (8 pixels per straw, rounded to 1e-6 mm).
 # For the richest configurations the volumes down to depth 2 (banks, world masks, packs, masks in
-# the banks, calibration slits, beamstop) are also printed, so that a change shows where it is.
+# the banks, rear calibration mask, beamstop) are also printed, so that a change shows where it is.
 
 import hashlib
 import numpy as np
@@ -47,9 +47,9 @@ def run(title, pars, print_depth):
             if depth <= print_depth:
                 print(line)
 
-run('nominal, rear 10 m, beamstop 3, calibration slits',
-    dict(bank_calibration=NOMINAL, rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True), 2)
-run('2026-September-SAM-606, rear 10 m, beamstop 3, calibration slits',
-    dict(bank_calibration=SAM606, rear_detector_distance_m=10.0, beamstop_id=3, with_calibration_slits=True), 2)
+run('nominal, rear 10 m, beamstop 3, rear calibration mask',
+    dict(bank_calibration=NOMINAL, rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True), 2)
+run('2026-September-SAM-606, rear 10 m, beamstop 3, rear calibration mask',
+    dict(bank_calibration=SAM606, rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True), 2)
 run('nominal, defaults', dict(bank_calibration=NOMINAL), 0)
 run('2026-September-SAM-606, defaults', dict(bank_calibration=SAM606), 0)

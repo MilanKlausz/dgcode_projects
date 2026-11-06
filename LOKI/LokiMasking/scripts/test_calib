@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
-# The masking simulation (geantinos) and analysis with the calibration slit masks.
+# The masking simulation (geantinos) and analysis with the rear calibration mask plate (SI-7615-993): 10 geantinos aimed
+# at bank 0, tube 28 (layer 0, the middle row: seen from the sample through the openings of the front and middle banks),
+# straw 3, pixels 507-516 of 1024 (the straw centre: under the paint between the slits at +-50 mm), i.e. global aiming
+# pixel id (28*7+3)*1024+507 = 204283. All of them must be in the mask.
 # Each step must succeed (its output is in <step>.log); the log of the test is a summary of the output files
 # (LOKI.OutputSummary: histograms, detection events, mask files).
 
 run() { local name=$1; shift; "$@" > $name.log 2>&1 || { tail -40 $name.log; echo "TEST FAILED: $name"; exit 1; }; }
-run sim sb_lokimasking_sim rear_detector_distance_m=5 aiming_straw_pixel_number=1024 analysis_straw_pixel_number=512 beamstop_id=0 with_calibration_slits=True -lPL_Empty
+run sim sb_lokimasking_sim rear_detector_distance_m=5 aiming_bank_id=0 aiming_pixel_id_min=204283 aiming_straw_pixel_number=1024 analysis_straw_pixel_number=512 beamstop_id=0 with_rear_calibration_mask=True -lPL_Empty
 run ana sb_lokimasking_ana loki_masking.griff
 python3 -m LOKI.OutputSummary

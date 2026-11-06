@@ -211,9 +211,9 @@ Volume chain at pixel 0 (name:copyNo): CountingGas:0 / Converter:100 / StrawWall
  1605631    8  127     6   255  bank/tube/straw copyNo:  8  127  6  centre (-1187.4377, 647.6563, 1598.3592)  local (0.000, 0.000, 597.656)  straw axis (0.000000, 1.000000, 0.000000)
 All straws (first/middle/last pixel): 75264 checks done, failures so far: 0
 ====================================================================================================
-Rear 10 m, beamstop 3, calibration slits, 512 pixels/straw
+Rear 10 m, beamstop 3, rear calibration mask, 512 pixels/straw
 ====================================================================================================
-(geometry built, 6686 placements passed the overlap check)
+(geometry built, 6592 placements passed the overlap check)
 Volume chain at pixel 0 (name:copyNo): CountingGas:0 / Converter:100 / StrawWall:0 / EmptyTube:-2 / TubeWall:0 / EmptyPackBox:-2 / Bank:0 / World:0
  pixelId bank tube straw   pix
        0    0    0     0     0  bank/tube/straw copyNo:  0    0  0  centre (499.0234, 779.8612, 10005.0341)  local (0.000, 0.000, -499.023)  straw axis (-1.000000, 0.000000, 0.000000)
@@ -635,9 +635,9 @@ Volume chain at pixel 0 (name:copyNo): CountingGas:0 / Converter:100 / StrawWall
  1605631    8  127     6   255  bank/tube/straw copyNo:  8  127  6  centre (-1189.2400, 642.8366, 1581.6507)  local (0.000, 0.000, 597.656)  straw axis (-0.001708, 0.999998, 0.000854)
 All straws (first/middle/last pixel): 75264 checks done, failures so far: 0
 ====================================================================================================
-Bank calibration 2026-September-SAM-606: rear 8 m, calibration slits, 64 pixels/straw
+Bank calibration 2026-September-SAM-606: rear 8 m, rear calibration mask, 64 pixels/straw
 ====================================================================================================
-(geometry built, 6685 placements passed the overlap check)
+(geometry built, 6591 placements passed the overlap check)
 Volume chain at pixel 0 (name:copyNo): CountingGas:0 / Converter:100 / StrawWall:0 / EmptyTube:-2 / TubeWall:0 / EmptyPackBox:-2 / Bank:0 / World:0
  pixelId bank tube straw   pix
        0    0    0     0     0  bank/tube/straw copyNo:  0    0  0  centre (488.9063, 780.7692, 8003.4177)  local (0.000, 0.000, -492.188)  straw axis (-0.999999, -0.000735, 0.000979)
