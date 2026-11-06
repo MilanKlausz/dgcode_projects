@@ -1,0 +1,20 @@
+package(USEPKG LokiAmBe LOKI)
+
+######################################################################
+
+The setups of the LoKI detector test with an AmBe source (October 2026) as
+simulation parameters (data/setups.toml, python/Setups.py):
+
+  sb_detectortest2026october_params                  (the setups)
+  sb_detectortest2026october_params C                (the parameters of setup C)
+  sb_detectortest2026october_sim setup=C [...]       (sb_lokiambe_sim with them)
+  sb_detectortest2026october_simanachain <dir> setup=C [...]
+
+Further parameters on the command line replace those of the setup.
+The source is in LokiAmBe, the counts per pixel go to a file with
+sb_lokioutput_writehdf5 (LokiOutput).
+
+data/hdf5_final_runs_example.sh: example, the HDF5 files of the final simulations
+of the setups.
+
+Primary author: milan.klausz@ess.eu

@@ -3,7 +3,8 @@ package(USEPKG LOKI G4GeoLoki G4CustomPyGen G4Interfaces G4Launcher G4CollectFil
 ######################################################################
 
 The AmBe neutron source in a cylindrical HDPE moderator, for LOKI simulations of
-measurements with such a source:
+measurements with such a source (e.g. the detector test of October 2026, see
+LokiCommissioning/DetectorTest2026October):
 
   sb_lokiambe_sim event_gen=ambe x_meters=.. y_meters=.. z_meters=.. [...]
   sb_lokiambe_simanachain <dir> event_gen=ambe [...]

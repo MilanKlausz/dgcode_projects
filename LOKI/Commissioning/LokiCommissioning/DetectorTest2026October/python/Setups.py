@@ -1,0 +1,72 @@
+"""The setups of the LoKI detector test of October 2026 (data/setups.toml) as parameters of sb_lokiambe_sim.
+
+The parameters of a setup: those of [common], then absorber_strips and absorber_plates (the items that were on the
+detector in that setup, joined with ';' in the order of the file), then the parameters of the setup itself (they
+replace the common ones).
+"""
+import functools
+import hashlib
+import tomllib
+
+from Core import FindData
+
+CATALOGUE = 'setups.toml'
+ABSORBER_PARAMETERS = ('absorber_strips', 'absorber_plates')
+SETUP_INFO = ('runs', 'description')  # setup entries that are not simulation parameters
+
+
+def catalogue_path():
+    return FindData('DetectorTest2026October', CATALOGUE)
+
+
+@functools.cache
+def load():
+    """The catalogue (checked)."""
+    with open(catalogue_path(), 'rb') as f:
+        catalogue = tomllib.load(f)
+    setups = catalogue.get('setups', {})
+    if not setups:
+        raise ValueError(f'{CATALOGUE}: no setups')
+    for parameter in ABSORBER_PARAMETERS:
+        for item in catalogue.get(parameter, []):
+            if 'value' not in item or 'setups' not in item or set(item['setups']) - set(setups):
+                raise ValueError(f'{CATALOGUE}: {parameter} item {item.get("name")!r}: no value, or wrong setups')
+    return catalogue
+
+
+def checksum():
+    """The first 12 hex digits of the SHA-256 of the catalogue file (recorded with the simulation)."""
+    with open(catalogue_path(), 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()[:12]
+
+
+def names():
+    return list(load()['setups'])
+
+
+def parameters(name):
+    """{parameter: value} (strings) of the setup, in the order of the catalogue."""
+    catalogue = load()
+    if name not in catalogue['setups']:
+        raise ValueError(f'unknown setup {name!r} (setups: {", ".join(catalogue["setups"])})')
+    out = {key: str(value) for key, value in catalogue.get('common', {}).items()}
+    for parameter in ABSORBER_PARAMETERS:
+        items = [item['value'] for item in catalogue.get(parameter, []) if name in item['setups']]
+        if items:
+            out[parameter] = ';'.join(items)
+    out.update({key: str(value) for key, value in catalogue['setups'][name].items() if key not in SETUP_INFO})
+    return out
+
+
+def expand(args):
+    """(setup name or None, args): setup=NAME in the command line arguments replaced by the parameters of the setup
+    (key=value); a parameter given on the command line replaces the one of the setup."""
+    setups = [a for a in args if a.startswith('setup=')]
+    if not setups:
+        return None, list(args)
+    if len(setups) > 1:
+        raise ValueError('setup= given more than once')
+    name = setups[0][len('setup='):]
+    given = {a.split('=', 1)[0] for a in args if '=' in a and not a.startswith('-')}
+    expanded = [f'{key}={value}' for key, value in parameters(name).items() if key not in given]
+    return name, expanded + [a for a in args if a != setups[0]]
