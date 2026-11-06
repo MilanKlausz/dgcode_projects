@@ -66,6 +66,7 @@ private:
   void placeAbsorberStripsOnBanks(G4LogicalVolume* lvWorld);
   void placeAbsorberPlatesOnBanks(G4LogicalVolume* lvWorld);
   void placeSourceCylinder(G4LogicalVolume* lvWorld, G4Material* material);
+  void placeVacuumTank(G4LogicalVolume* lvWorld);
   void highlightComponents();
 };
 
@@ -219,6 +220,17 @@ GeoBCS::GeoBCS()
   // - distance > 0 and on_pack 1: on the outer face of the outermost pack on that side, parallel to the (tilted) packs,
   //   the points taken in the frame of that pack, the plate this far from the face
   addParameterString("absorber_plates", "");
+
+  // Optional vacuum tank around the detector system (background studies): a cylindrical shell around the beam axis
+  // (z) with a closed rear end and a front end plate with the beam window, lined with B4C on the inside (0: no tank)
+  addParameterDouble("vacuum_tank_wall_mm", 0.0, 0.0, 200.0);
+  addParameterDouble("vacuum_tank_inner_radius_m", 1.625, 0.9, 5.0);
+  addParameterDouble("vacuum_tank_front_m", 0.1, 0.0, 1.0); // the inner face of the front end plate (z)
+  addParameterDouble("vacuum_tank_rear_m", 10.6, 5.0, 11.5); // the inner face of the rear end plate (z)
+  addParameterDouble("vacuum_tank_window_radius_m", 0.15, 0.0, 1.0); // the opening of the front end plate
+  addParameterDouble("vacuum_tank_front_B4C_mm", 5.0, 0.0, 50.0); // the B4C lining of the front end plate
+  addParameterString("vacuum_tank_material", "G4_Al");
+  addParameterString("vacuum_tank_lining_material", "MAT_B4C");
 
   // bank placements: "nominal-geant4-geometry" or the name of a calibration in G4GeoLoki/data/bank_calibration_<name>.txt
   // (or the path of such a file), see G4GeoLoki/BankCalibration.hh
@@ -597,6 +609,7 @@ G4VPhysicalVolume* GeoBCS::Construct(){
   placeAbsorberStripsOnBanks(lvWorld);
   placeAbsorberPlatesOnBanks(lvWorld);
   placeSourceCylinder(lvWorld, world_material);
+  placeVacuumTank(lvWorld);
   highlightComponents();
 
   delete banks;
@@ -666,6 +679,34 @@ void GeoBCS::placeSourceCylinder(G4LogicalVolume* lvWorld, G4Material* material)
     place(new G4Tubs("SourceCylinder", 0, sourceRadius, 0.5 * getParameterDouble("show_source_cylinder_height_cm") * Units::cm, 0., 2 * M_PI),
           material, getParameterDouble("show_source_cylinder_x_meters") * Units::m, getParameterDouble("show_source_cylinder_y_meters") * Units::m,
           getParameterDouble("show_source_cylinder_z_meters") * Units::m, lvWorld, G4Colour(1, 1, 1), -9, 0, rotation);
+  }
+}
+
+// Optional vacuum tank (its rear end plate is checked in validateParameters, the radius only by the overlap check)
+void GeoBCS::placeVacuumTank(G4LogicalVolume* lvWorld) {
+  const double tankWall = getParameterDouble("vacuum_tank_wall_mm")*Units::mm;
+  if (tankWall > 0) {
+    const double rIn = getParameterDouble("vacuum_tank_inner_radius_m")*Units::m;
+    const double zFront = getParameterDouble("vacuum_tank_front_m")*Units::m;
+    const double zRear = getParameterDouble("vacuum_tank_rear_m")*Units::m;
+    const double rWindow = getParameterDouble("vacuum_tank_window_radius_m")*Units::m;
+    const double lining = getParameterDouble("vacuum_tank_front_B4C_mm")*Units::mm;
+    auto tankMaterial = getParameterMaterial("vacuum_tank_material");
+    // the shell (from the outer face of the front plate to the outer face of the rear plate)
+    const double zShellMin = zFront - lining - tankWall;
+    const double zShellMax = zRear + tankWall;
+    place(new G4Tubs("VacuumTankShell", rIn, rIn + tankWall, 0.5*(zShellMax - zShellMin), 0., 2*M_PI),
+          tankMaterial, 0, 0, 0.5*(zShellMin + zShellMax), lvWorld, SILVER, -10, 0, 0);
+    place(new G4Tubs("VacuumTankRear", 0, rIn, 0.5*tankWall, 0., 2*M_PI),
+          tankMaterial, 0, 0, zRear + 0.5*tankWall, lvWorld, SILVER, -10, 0, 0);
+    place(new G4Tubs("VacuumTankFront", rWindow, rIn, 0.5*tankWall, 0., 2*M_PI),
+          tankMaterial, 0, 0, zFront - lining - 0.5*tankWall, lvWorld, SILVER, -10, 0, 0);
+    if (lining > 0)
+      place(new G4Tubs("VacuumTankFrontLining", rWindow, rIn, 0.5*lining, 0., 2*M_PI),
+            getParameterMaterial("vacuum_tank_lining_material"), 0, 0, zFront - 0.5*lining, lvWorld, BLACK, -10, 0, 0);
+    printf("GeoBCSBanks: vacuum tank: %s, wall %g mm, inner radius %g m, z %g - %g m (inner faces), window radius %g m, "
+           "front lining %g mm\n", getParameterString("vacuum_tank_material").c_str(), tankWall/Units::mm, rIn/Units::m,
+           zFront/Units::m, zRear/Units::m, rWindow/Units::m, lining/Units::mm);
   }
 }
 
@@ -749,6 +790,17 @@ bool GeoBCS::validateParameters() {
   catch (const std::exception& error) {
     printf("ERROR: %s\n", error.what());
     return false;
+  }
+  if (getParameterDouble("vacuum_tank_wall_mm") > 0) {
+    // the rear end plate behind the rear bank (its back is less than 0.3 m behind the rear detector distance)
+    if (getParameterDouble("vacuum_tank_rear_m")*Units::m < rear_detector_distance + 0.3*Units::m) {
+      printf("ERROR: vacuum_tank_rear_m must be at least 0.3 m behind rear_detector_distance_m\n");
+      return false;
+    }
+    if (getParameterDouble("vacuum_tank_rear_m") + getParameterDouble("vacuum_tank_wall_mm")/1000.0 > 1.1*(1.0 + getParameterDouble("rear_detector_distance_m"))) {
+      printf("ERROR: the vacuum tank does not fit in the world volume\n");
+      return false;
+    }
   }
   if(rear_detector_distance < 5.0 *Units::m) {
     printf("ERROR: Wrong rear_detector_distance_m value for LOKI! (It should be >=5.0 m)\n");
