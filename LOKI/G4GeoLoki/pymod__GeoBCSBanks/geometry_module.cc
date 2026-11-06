@@ -79,8 +79,8 @@ GeoBCS::GeoBCS()
 G4LogicalVolume * GeoBCS::createTubeLV(double converterThickness, double strawLength){
   const double effectiveStrawLength = strawLength - BcsTube::getStrawWallThickness(); //This is only epsilon difference...
 
-  auto lv_tube = new G4LogicalVolume(new G4Tubs("TubeWall",0,  BcsTube::getTubeOuterRadius(), 0.5*strawLength, 0., 2*M_PI),
-                                     BcsTube::tubeWallMaterial, "TubeWall");
+  auto lv_tube = new G4LogicalVolume(new G4Tubs(BcsTube::tubeWallName, 0, BcsTube::getTubeOuterRadius(), 0.5*strawLength, 0., 2*M_PI),
+                                     BcsTube::tubeWallMaterial, BcsTube::tubeWallName);
 
   auto lv_empty_tube = place(new G4Tubs("EmptyTube", 0., BcsTube::getTubeInnerRadius(), 0.5*strawLength, 0., 2*M_PI),
                              BcsTube::tubeInnerGas, 0,0,0, lv_tube, G4Colour(0,1,1),-2,0,0).logvol;
@@ -122,15 +122,15 @@ G4LogicalVolume *GeoBCS::createPackBoxLV(int bankId, int packNumber){
   const double B4CLengthHalf = 0.5*strawLength + BcsPack::getB4CLengthOverStrawOnOneEnd();
 
   auto B4CPanelMaterial = getParameterMaterial("B4C_panel_material");
-  for (int partId = 0; partId < 3; partId++){
-    place(new G4Box("B4CPanel", 0.5*BcsPack::getB4CPartThickness(partId), 0.5*BcsPack::getB4CPartHeight(partId), B4CLengthHalf),
+  for (int partId = 0; partId < BcsPack::getNumberOfB4CParts(); partId++){
+    place(new G4Box(BcsPack::getB4CPartName(partId), 0.5*BcsPack::getB4CPartThickness(partId), 0.5*BcsPack::getB4CPartHeight(partId), B4CLengthHalf),
           B4CPanelMaterial,
           BcsPack::getB4CPartHorizontalOffset(partId), BcsPack::getB4CPartVerticalOffset(partId), 0,
           lv_pack_box, G4Colour(0, 1, 0), -2, 0, new G4RotationMatrix());
     }
   /// Add Al behing the B4C panel in 2 parts ///
-  for (int partId = 0; partId < 2; partId++){
-    place(new G4Box("AlPanel", 0.5*BcsPack::getAlPartThickness(partId), 0.5*BcsPack::getAlPartHeight(partId), B4CLengthHalf),
+  for (int partId = 0; partId < BcsPack::getNumberOfAlParts(); partId++){
+    place(new G4Box(BcsPack::getAlPartName(partId), 0.5*BcsPack::getAlPartThickness(partId), 0.5*BcsPack::getAlPartHeight(partId), B4CLengthHalf),
           BcsPack::AlPanelMaterial,
           BcsPack::getAlPartHorizontalOffset(partId),  BcsPack::getAlPartVerticalOffset(partId), 0,
           lv_pack_box, SILVER, -2, 0, new G4RotationMatrix());
@@ -174,7 +174,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
 
   const int numberOfBoronMasks = BoronMasks::getNumberOfBoronMasks(bankId);
   for (int maskId = 0; maskId < numberOfBoronMasks; ++maskId){
-    const std::string maskName = "BoronMask-"+std::to_string(bankId)+"-"+std::to_string(maskId);
+    const std::string maskName = BoronMasks::getName(bankId, maskId);
     const auto maskSize = BoronMasks::getSizeInBankFrame(bankId, maskId);
     const auto maskPosition = banks->getBoronMaskPositionInBankFrame(bankId, maskId);
     place(new G4Box(maskName, 0.5*maskSize[0], 0.5*maskSize[1], 0.5*maskSize[2]),
@@ -186,7 +186,7 @@ G4LogicalVolume *GeoBCS::createBankLV(int bankId){
   // Add Beamstop to the Rear Bank volume
   const int beamstopId = getParameterInt("beamstop_id");
   if (bankId == 0 && beamstopId) { // beamstopId==0 means no beamstop
-    const std::string maskName = "BoronMask-Beamstop";
+    const std::string maskName = BoronMasks::beamstopName;
     const double detBankFrontDistance = banks->detectorSystemFrontDistanceFromBankFront(bankId);
     const double distanceFromDetectorFront = 5*Units::cm;
 
@@ -300,8 +300,7 @@ G4LogicalVolume *GeoBCS::createTriangularMaskLV(int maskId){
     auto cutCentre = G4ThreeVector(xCutDir * (xHalf - xCutHalf * cos(alpha) + yCutHalf * sin(alpha)), yCutDir * (-(ySideToCut - yHalf) + xCutHalf * sin(alpha) + yCutHalf * cos(alpha)), 0);
     auto triangularMask = new G4SubtractionSolid("TriangularMask", triangularMaskBox, triangularMaskCut, cutRotationMatrix, cutCentre);
 
-    const int bankId = BoronMasks::getBankIdOfTriangularMask(maskId);
-    const std::string maskName = "BoronMask-triangular-"+std::to_string(bankId)+"-"+std::to_string(maskId);
+    const std::string maskName = BoronMasks::getNameOfTriangularMask(maskId);
     auto lv_triangularMask = new G4LogicalVolume(triangularMask, BoronMasks::maskMaterial, maskName);
 
     return lv_triangularMask;

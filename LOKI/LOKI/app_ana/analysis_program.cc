@@ -12,11 +12,24 @@
 #include "LOKI/DetectionFileCreator.hh"
 
 #include "G4GeoLoki/PixelatedBanks.hh"
+#include "G4GeoLoki/BcsTube.hh"
 //Griff analysis. See https://confluence.esss.lu.se/display/DGCODE/Griff for more info.
 
 #ifndef M_PI
 #define M_PI  3.14159265358979323846  //  pi
 #endif
+
+namespace {
+  // segments in the volumes whose (logical) name starts with a prefix, e.g. the parts B4CPanel-<drawing>.<k> of a panel
+  bool startsWith(const std::string& name, const char* prefix) { return name.rfind(prefix, 0) == 0; }
+  class SegmentFilter_VolumePrefix : public GriffAnaUtils::ISegmentFilter {
+  public:
+    explicit SegmentFilter_VolumePrefix(const std::string& prefix) : m_prefix(prefix) {}
+    bool filter(const GriffDataRead::Segment* segment) const override { return startsWith(segment->volumeName(), m_prefix.c_str()); }
+  private:
+    std::string m_prefix;
+  };
+}
 
 int main(int argc, char**argv) {
 
@@ -54,12 +67,12 @@ int main(int argc, char**argv) {
   primary_neutrons.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
   GriffAnaUtils::SegmentIterator segments_TubeWall(&dr);
-  segments_TubeWall.addFilter(new GriffAnaUtils::SegmentFilter_Volume("TubeWall"));
+  segments_TubeWall.addFilter(new GriffAnaUtils::SegmentFilter_Volume(BcsTube::tubeWallName.c_str()));
   segments_TubeWall.addFilter(new GriffAnaUtils::TrackFilter_Primary());
   segments_TubeWall.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
   GriffAnaUtils::SegmentIterator segments_B4CPanel(&dr);
-  segments_B4CPanel.addFilter(new GriffAnaUtils::SegmentFilter_Volume("B4CPanel"));
+  segments_B4CPanel.addFilter(new SegmentFilter_VolumePrefix("B4CPanel-"));
   segments_B4CPanel.addFilter(new GriffAnaUtils::TrackFilter_Primary());
   segments_B4CPanel.addFilter(new GriffAnaUtils::TrackFilter_PDGCode(2112));
 
@@ -438,7 +451,7 @@ int main(int argc, char**argv) {
         //Count them for 9 banks?
         //Theta conv? to overlay with detection?
       }
-      else if (segL->volumeName() == "TubeWall") {
+      else if (segL->volumeName() == BcsTube::tubeWallName) {
         count_neutrons_abs_TubeWall += 1;
       }
       else if (segL->volumeName() == "StrawWall") {
@@ -447,10 +460,10 @@ int main(int argc, char**argv) {
       else if (segL->volumeName() == "EmptyTube" || segL->volumeName() == "CountingGas") {
         count_neutrons_abs_Gas += 1;
       }
-      else if (segL->volumeName() == "B4CPanel") { ///
+      else if (startsWith(segL->volumeName(), "B4CPanel-")) { ///
         count_neutrons_abs_B4CPanel += 1;
       }
-      else if (segL->volumeName() == "AlPanel") {
+      else if (startsWith(segL->volumeName(), "AlPanel-")) {
         count_neutrons_abs_AlPanel += 1;
       }
       else if (segL->volumeName() == "World") {

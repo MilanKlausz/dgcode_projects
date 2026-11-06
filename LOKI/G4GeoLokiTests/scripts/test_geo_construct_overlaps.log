@@ -2,8 +2,11 @@
 Configuration: bank_calibration=nominal-geant4-geometry
 World daughters: 13
 Total placements checked for overlaps: 6579
-   AlPanel                          checked:   224  problems: 0
-   B4CPanel                         checked:   336  problems: 0
+   AlPanel-SI-7615-142.0            checked:   112  problems: 0
+   AlPanel-SI-7615-142.1            checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.0        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.1        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.2        checked:   112  problems: 0
    Bank                             checked:     9  problems: 0
    BoronMask-0-*                    checked:     6  problems: 0
    BoronMask-1-*                    checked:     8  problems: 0
@@ -14,22 +17,25 @@ Total placements checked for overlaps: 6579
    BoronMask-6-*                    checked:     8  problems: 0
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
-   BoronMask-triangular-5-0         checked:     1  problems: 0
-   BoronMask-triangular-5-1         checked:     1  problems: 0
-   BoronMask-triangular-7-2         checked:     1  problems: 0
-   BoronMask-triangular-7-3         checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-691 checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-692 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-693 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-694 checked:     1  problems: 0
    Converter                        checked:  1568  problems: 0
    CountingGas                      checked:  1568  problems: 0
    EmptyPackBox                     checked:   112  problems: 0
    EmptyTube                        checked:   224  problems: 0
    StrawWall                        checked:  1568  problems: 0
-   TubeWall                         checked:   896  problems: 0
+   TubeWall-SI-7615-061             checked:   896  problems: 0
 ================================================================================
 Configuration: bank_calibration=nominal-geant4-geometry, rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True
 World daughters: 13
 Total placements checked for overlaps: 6592
-   AlPanel                          checked:   224  problems: 0
-   B4CPanel                         checked:   336  problems: 0
+   AlPanel-SI-7615-142.0            checked:   112  problems: 0
+   AlPanel-SI-7615-142.1            checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.0        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.1        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.2        checked:   112  problems: 0
    Bank                             checked:     9  problems: 0
    BoronMask-0-*                    checked:     6  problems: 0
    BoronMask-1-*                    checked:     8  problems: 0
@@ -41,10 +47,10 @@ Total placements checked for overlaps: 6592
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
    BoronMask-Beamstop               checked:     1  problems: 0
-   BoronMask-triangular-5-0         checked:     1  problems: 0
-   BoronMask-triangular-5-1         checked:     1  problems: 0
-   BoronMask-triangular-7-2         checked:     1  problems: 0
-   BoronMask-triangular-7-3         checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-691 checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-692 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-693 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-694 checked:     1  problems: 0
    CalibPaint-0-SI-7615-993.0       checked:     1  problems: 0
    CalibPaint-0-SI-7615-993.1       checked:     1  problems: 0
    CalibPaint-0-SI-7615-993.10      checked:     1  problems: 0
@@ -62,13 +68,16 @@ Total placements checked for overlaps: 6592
    EmptyPackBox                     checked:   112  problems: 0
    EmptyTube                        checked:   224  problems: 0
    StrawWall                        checked:  1568  problems: 0
-   TubeWall                         checked:   896  problems: 0
+   TubeWall-SI-7615-061             checked:   896  problems: 0
 ================================================================================
 Configuration: bank_calibration=2026-September-SAM-606
 World daughters: 13
 Total placements checked for overlaps: 6579
-   AlPanel                          checked:   224  problems: 0
-   B4CPanel                         checked:   336  problems: 0
+   AlPanel-SI-7615-142.0            checked:   112  problems: 0
+   AlPanel-SI-7615-142.1            checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.0        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.1        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.2        checked:   112  problems: 0
    Bank                             checked:     9  problems: 0
    BoronMask-0-*                    checked:     6  problems: 0
    BoronMask-1-*                    checked:     8  problems: 0
@@ -79,22 +88,25 @@ Total placements checked for overlaps: 6579
    BoronMask-6-*                    checked:     8  problems: 0
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
-   BoronMask-triangular-5-0         checked:     1  problems: 0
-   BoronMask-triangular-5-1         checked:     1  problems: 0
-   BoronMask-triangular-7-2         checked:     1  problems: 0
-   BoronMask-triangular-7-3         checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-691 checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-692 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-693 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-694 checked:     1  problems: 0
    Converter                        checked:  1568  problems: 0
    CountingGas                      checked:  1568  problems: 0
    EmptyPackBox                     checked:   112  problems: 0
    EmptyTube                        checked:   224  problems: 0
    StrawWall                        checked:  1568  problems: 0
-   TubeWall                         checked:   896  problems: 0
+   TubeWall-SI-7615-061             checked:   896  problems: 0
 ================================================================================
 Configuration: bank_calibration=2026-September-SAM-606, rear_detector_distance_m=10.0, beamstop_id=3, with_rear_calibration_mask=True
 World daughters: 13
 Total placements checked for overlaps: 6592
-   AlPanel                          checked:   224  problems: 0
-   B4CPanel                         checked:   336  problems: 0
+   AlPanel-SI-7615-142.0            checked:   112  problems: 0
+   AlPanel-SI-7615-142.1            checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.0        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.1        checked:   112  problems: 0
+   B4CPanel-SI-7615-143_01.2        checked:   112  problems: 0
    Bank                             checked:     9  problems: 0
    BoronMask-0-*                    checked:     6  problems: 0
    BoronMask-1-*                    checked:     8  problems: 0
@@ -106,10 +118,10 @@ Total placements checked for overlaps: 6592
    BoronMask-7-*                    checked:     8  problems: 0
    BoronMask-8-*                    checked:     8  problems: 0
    BoronMask-Beamstop               checked:     1  problems: 0
-   BoronMask-triangular-5-0         checked:     1  problems: 0
-   BoronMask-triangular-5-1         checked:     1  problems: 0
-   BoronMask-triangular-7-2         checked:     1  problems: 0
-   BoronMask-triangular-7-3         checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-691 checked:     1  problems: 0
+   BoronMask-triangular-5-SI-7615-692 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-693 checked:     1  problems: 0
+   BoronMask-triangular-7-SI-7615-694 checked:     1  problems: 0
    CalibPaint-0-SI-7615-993.0       checked:     1  problems: 0
    CalibPaint-0-SI-7615-993.1       checked:     1  problems: 0
    CalibPaint-0-SI-7615-993.10      checked:     1  problems: 0
@@ -127,6 +139,6 @@ Total placements checked for overlaps: 6592
    EmptyPackBox                     checked:   112  problems: 0
    EmptyTube                        checked:   224  problems: 0
    StrawWall                        checked:  1568  problems: 0
-   TubeWall                         checked:   896  problems: 0
+   TubeWall-SI-7615-061             checked:   896  problems: 0
 ================================================================================
 All overlap checks OK

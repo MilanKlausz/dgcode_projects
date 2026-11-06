@@ -10,6 +10,7 @@
 
 #include "GriffAnaUtils/All.hh"
 #include "G4GeoLoki/PixelatedBanks.hh"
+#include "G4GeoLoki/BcsBanks.hh"
 #include "Units/Units.hh"
 #include <iostream>
 #include <string>
@@ -47,7 +48,7 @@ int main(int argc, char **argv) {
           nConverterSegments++;
           if (id < base || id >= base + n) nExitOutsideStraw++;
         }
-        if (vol.find("BoronMask-") != std::string::npos || vol.find("CalibPaint-") == 0 || vol == "B4CPanel" || vol == "AlPanel" || vol.find("Beamstop") != std::string::npos) {
+        if (BcsBanks::isAbsorberVolume(vol)) {   // masks, beamstop, pack panels, rear calibration paint
           if (absorber.empty()) absorber = vol;
         } else if (vol == "CountingGas") {
           // copy numbers one level deeper than from the Converter used by the analysis programs

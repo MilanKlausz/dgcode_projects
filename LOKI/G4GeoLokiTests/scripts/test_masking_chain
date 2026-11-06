@@ -24,6 +24,7 @@ import SimpleHists as sh
 import G4GeoLoki.LokiAimHelper as LokiAim
 import G4GeoLokiTests.TestUtils as TU
 from G4GeoLokiTests.testhelpers import Checker
+ABSORBERS = set(LokiAim.absorberVolumeNames())  # as the masking analysis (BcsBanks::isAbsorberVolume)
 
 chk = Checker()
 N = 4
@@ -129,7 +130,7 @@ def calibration_case():
                 absorbed = False
                 for seg in trk.segments:
                     name = seg.volumeName()
-                    if not absorbed and ('BoronMask-' in name or name in ('B4CPanel', 'AlPanel')):
+                    if not absorbed and name in ABSORBERS:
                         absorbed = True
                     elif name == 'Converter' and not absorbed:
                         st = seg.lastStep()

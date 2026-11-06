@@ -20,8 +20,12 @@ import GriffDataRead
 import G4GeoLokiTests.TestUtils as TU
 from G4GeoLokiTests.testhelpers import Checker, captured_fd_output
 from Core import FindData
+import G4GeoLoki.LokiAimHelper as LokiAim
 
 chk = Checker()
+# as the masking analysis (BcsBanks::isAbsorberVolume); the file has the volume names from before the CAD names, so this
+# set matches nothing in it: the test does not depend on that, as its tracks reach no Converter after an absorber
+ABSORBERS = set(LokiAim.absorberVolumeNames())
 N = 256
 GRIFF = 'loki_masking.griff'
 with gzip.open(FindData('G4GeoLokiTests', 'loki_masking_a653830_bank7.griff.gz'), 'rb') as f, open(GRIFF, 'wb') as out:
@@ -49,7 +53,7 @@ def emulated(calibration):
             absorbed = False
             for seg in trk.segments:
                 name = seg.volumeName()
-                if not absorbed and ('BoronMask-' in name or name in ('B4CPanel', 'AlPanel')):
+                if not absorbed and name in ABSORBERS:
                     absorbed = True
                 elif name == 'Converter' and not absorbed:
                     st = seg.lastStep()

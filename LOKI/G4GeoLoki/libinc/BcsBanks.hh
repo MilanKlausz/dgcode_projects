@@ -83,6 +83,10 @@ public:
   /// world, as they are outside the bank volume, with the transform of their bank).
   static PlacementInBank getTriangularBoronMaskPlacementInBankFrame(const int maskId);
   static double getBeamstopSize(const int beamstopId, const int axisIndex); // 0 - x, 1 - y, 2 - z
+  /// The names of all absorbing volumes (B4C masks, triangular masks, beamstop, the B4C and Al panel parts of the packs,
+  /// the Gd paint of the rear calibration mask plate), for the masking analysis and its GRIFF output filter.
+  static const std::vector<std::string>& getAbsorberVolumeNames();
+  static bool isAbsorberVolume(const std::string& volumeName);
 
   ///////// Bank placement in the world (BcsBanksPlacement.cc) /////////
   /// The placement of a bank in the world (the single source for the Geant4 geometry, AimHelper and

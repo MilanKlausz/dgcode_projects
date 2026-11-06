@@ -1,5 +1,7 @@
 #include "sbldpy/sbldpy.hh"
 #include "G4GeoLoki/AimHelper.hh"
+#include "G4GeoLoki/BcsBanks.hh"
+#include "G4GeoLoki/BcsTube.hh"
 
 //Private module used by the LokiAimHelper Python module (which provides the
 //default values of the constructor arguments).
@@ -17,6 +19,11 @@ SBLDPY_MODULE( _LokiAimHelper )
   // the text of a bank calibration file ("" for the nominal geometry); throws for an unknown name
   m.def( "bankCalibrationText", []( const std::string& name ) { return BankCalibration::load( name ).text(); },
          { "name" } );
+  // the volume names of the geometry that analyses look for (see BcsBanks::getAbsorberVolumeNames); sbldpy can not
+  // return a std::vector<std::string>, so the names are given by index (the list is built in LokiAimHelper.py)
+  m.def( "number_of_absorber_volume_names", []() { return std::int64_t( BcsBanks::getAbsorberVolumeNames().size() ); } );
+  m.def( "absorber_volume_name", []( std::int64_t i ) { return BcsBanks::getAbsorberVolumeNames().at( i ); }, { "i" } );
+  m.def( "tube_wall_name", []() { return BcsTube::tubeWallName; } );
 
   m.add_class<AimHelper>( "AimHelper" )
     .def_init<double, std::int64_t, std::int64_t, std::string>( { "rearBankDistance", "strawPixelNumber",

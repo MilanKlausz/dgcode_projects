@@ -32,7 +32,7 @@ from G4GeoLokiTests.testhelpers import (captured_fd_output, fmt, fmtvec, sample_
 chk = Checker()
 NOMINAL = 'nominal-geant4-geometry'  # (explicit: the default of the geometry is the 2026-September-SAM-606 calibration)
 
-EXPECTED_CHAIN = ['CountingGas', 'Converter', 'StrawWall', 'EmptyTube', 'TubeWall', 'EmptyPackBox', 'Bank', 'World']
+EXPECTED_CHAIN = ['CountingGas', 'Converter', 'StrawWall', 'EmptyTube', LokiAim.TUBE_WALL_NAME, 'EmptyPackBox', 'Bank', 'World']
 
 def expected_local_z(bank, j, N):
     L = TU.getStrawLengthByBankId(bank)

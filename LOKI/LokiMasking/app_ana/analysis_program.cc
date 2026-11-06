@@ -10,6 +10,7 @@
 #include <fstream>
 #include "LokiMasking/MaskFileCreator.hh"
 #include "G4GeoLoki/PixelatedBanks.hh"
+#include "G4GeoLoki/BcsBanks.hh"
 //Griff analysis. See https://confluence.esss.lu.se/display/DGCODE/Griff for more info.
 
 #ifndef M_PI
@@ -92,7 +93,7 @@ int main(int argc, char **argv) {
       for (auto seg = trk_geantino->segmentBegin(); seg != trk_geantino->segmentEnd(); ++seg) {
 
         // absorbers: the boron masks, the B4C/Al panels of the packs and the Gd paint of the rear calibration mask plate
-        if (!geantinoAbsorbed && (seg->volumeName().find("BoronMask-") != std::string::npos || seg->volumeName().find("CalibPaint-") == 0 || seg->volumeName() == "B4CPanel" || seg->volumeName() == "AlPanel")) {
+        if (!geantinoAbsorbed && BcsBanks::isAbsorberVolume(seg->volumeName())) {
           // counted as "in mask" only if the absorber is crossed before any straw is reached
           // (the B4C panel behind the tubes of a bank is crossed by every geantino after its straws)
           if (!converterReached) {
