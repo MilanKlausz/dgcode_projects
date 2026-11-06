@@ -27,7 +27,6 @@ queue = 'newlong' #DMSC queue
 cmdbase = ['sb_loki_simanachain'
           ,'results'
           ,'event_gen=mcpl'
-          ,'allow_zero_weight=y'
           ,'analysis_straw_pixel_number=512'
           ,f'rear_detector_distance_m={rearDetDistance}'
           ,f'input_file={mcplFile}'

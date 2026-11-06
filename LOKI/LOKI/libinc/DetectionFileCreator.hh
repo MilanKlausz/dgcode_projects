@@ -7,11 +7,12 @@
 
 class DetectionFileCreator {
 public:
-  DetectionFileCreator(const char* fileName, GriffDataRead::StrMap& userData);
+  // weighted: store the weight of each detection event (simulations of weighted MCPL input), otherwise all weights are 1
+  DetectionFileCreator(const char* fileName, GriffDataRead::StrMap& userData, bool weighted = false);
   DetectionFileCreator(const char* fileName);
   ~DetectionFileCreator();
 
-  void addDetectionEvent(const int pixelId, const double tof);
+  void addDetectionEvent(const int pixelId, const double tof, const double weight = 1.0);
 
 private:
   std::string m_fileName;
