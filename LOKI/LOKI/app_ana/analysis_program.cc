@@ -57,6 +57,10 @@ int main(int argc, char**argv) {
 
   setup->dump();
 
+  if (!userData.count("bank_shifts_mm"))
+    printf("WARNING: GRIFF file from before the CAD volume names (no bank_shifts_mm in the user data): absorbers, tube "
+           "walls and panels are not recognised, so the results that depend on them are empty.\n");
+
   DetHitApproximation hit(&dr,1.2*Units::cm,120*Units::keV,"CountingGas" ); // defined for He3 gas
 
   GriffAnaUtils::SegmentIterator segments_gas(&dr);

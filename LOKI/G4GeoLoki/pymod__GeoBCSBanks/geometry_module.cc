@@ -30,6 +30,7 @@ protected:
   virtual bool validateParameters();
 private:
   BcsBanks* banks;
+  std::map<int, std::array<double,3>> bankShifts;  // bank_shifts_mm
   //Functions
   G4LogicalVolume * createTubeLV(double converter_thickness, double straw_length);
   G4LogicalVolume * createPackBoxLV(int bankId, int packNumber);
@@ -71,6 +72,10 @@ GeoBCS::GeoBCS()
   // bank placements: "nominal-geant4-geometry" or the name of a calibration in G4GeoLoki/data/bank_calibration_<name>.txt
   // (or the path of such a file), see G4GeoLoki/BankCalibration.hh
   addParameterString("bank_calibration", BankCalibration::defaultName);
+  // banks moved from their calibrated positions (e.g. on their rails for a measurement): "bank:dx,dy,dz;..." [mm, world
+  // frame], e.g. "2:0,0,700;4:0,0,700"; the analysis gets the shifted placements with the recorded calibration text.
+  // The z of the rear bank (0) is rear_detector_distance_m: a dz of bank 0 is an error
+  addParameterString("bank_shifts_mm", "");
 
   addParameterString("world_material","G4_Vacuum");
   addParameterString("B4C_panel_material","MAT_B4C:b10_enrichment=0.95"); // the B4C panels behind the tubes
@@ -312,7 +317,12 @@ G4LogicalVolume *GeoBCS::createTriangularMaskLV(int maskId){
 G4VPhysicalVolume* GeoBCS::Construct(){
   // this is where we put the entire geometry together, the private functions creating the logical volumes are meant to facilitate the code below
   const double rear_detector_distance = getParameterDouble("rear_detector_distance_m")*Units::m;
-  banks = new BcsBanks(rear_detector_distance, 9, getParameterString("bank_calibration"));
+  bankShifts = BankCalibration::parseShifts(getParameterString("bank_shifts_mm"));
+  banks = new BcsBanks(rear_detector_distance, 9,
+                       BankCalibration::load(getParameterString("bank_calibration")).shifted(getParameterString("bank_shifts_mm")));
+  for (const auto& [bankId, shift] : bankShifts)
+    printf("GeoBCSBanks: bank %d shifted from its bank_calibration position by (%g, %g, %g) mm\n", bankId,
+           shift[0] / Units::mm, shift[1] / Units::mm, shift[2] / Units::mm);
 
   // calculate a value that is big enough to fit your world volume, the "super mother"
   double big_dimension = 1.1*( 1 *Units::m + rear_detector_distance);
@@ -369,6 +379,13 @@ bool GeoBCS::validateParameters() {
   }
   catch (const std::exception& error) {
     printf("ERROR: Wrong bank_calibration value: %s\n", error.what());
+    return false;
+  }
+  try {
+    BankCalibration::load(bankCalibration).shifted(getParameterString("bank_shifts_mm"));
+  }
+  catch (const std::exception& error) {
+    printf("ERROR: Wrong bank_shifts_mm value: %s\n", error.what());
     return false;
   }
   if(rear_detector_distance < 5.0 *Units::m) {

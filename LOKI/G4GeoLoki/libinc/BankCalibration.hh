@@ -2,6 +2,7 @@
 #define G4GeoLoki_BankCalibration_hh
 
 #include <array>
+#include <map>
 #include <string>
 
 /// Named calibration of the LOKI detector bank placements (e.g. from a survey).
@@ -60,6 +61,14 @@ public:
   /// placements of the simulation even if the file has changed or is not there): name is the bank_calibration value
   /// it was selected with; an empty text is the nominal geometry (only for the nominal name).
   static BankCalibration fromText(const std::string& name, const std::string& text);
+
+  /// This calibration with some banks translated from their calibrated positions (e.g. banks moved on their rails for a
+  /// measurement): shifts "bank:dx,dy,dz;..." [mm, Geant4 world frame] added to F of the given banks (their axes are
+  /// kept). The text gets the shifted bank lines, so that analyses using the recorded text have the same placements.
+  /// "" changes nothing. Only banks of the calibration can be shifted; throws std::runtime_error on any problem.
+  BankCalibration shifted(const std::string& shifts) const;
+  /// The shifts of shifted(): bank id -> (dx, dy, dz) [Geant4 length units]; throws std::runtime_error on a wrong value.
+  static std::map<int, std::array<double,3>> parseShifts(const std::string& shifts);
 
   const std::string& name() const { return m_name; }
   bool isNominal() const;

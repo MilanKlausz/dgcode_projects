@@ -3,6 +3,7 @@
 #include "Units/Units.hh"
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -182,4 +183,89 @@ BankCalibration BankCalibration::parse(const std::string& text, const std::strin
   if (calibration.isNominal())
     fail(lineNumber, "no bank line (use '" + nominalName + "' for the nominal geometry)");
   return calibration;
+}
+
+std::map<int, std::array<double,3>> BankCalibration::parseShifts(const std::string& shifts) {
+  std::map<int, std::array<double,3>> out;
+  std::stringstream items(shifts);
+  std::string item;
+  while (std::getline(items, item, ';')) {
+    if (item.find_first_not_of(" \t") == std::string::npos)
+      continue;
+    const auto colon = item.find(':');
+    std::array<double,3> shift;
+    int bankId = -1;
+    try {
+      size_t used = 0;
+      bankId = std::stoi(item.substr(0, colon), &used);
+      if (colon == std::string::npos || item.substr(0, colon).find_first_not_of(" \t", used) != std::string::npos)
+        throw std::invalid_argument(item);
+      std::stringstream values(item.substr(colon + 1));
+      std::string value;
+      int n = 0;
+      while (std::getline(values, value, ',')) {
+        if (n == 3)
+          throw std::invalid_argument(item);
+        shift[n++] = std::stod(value) * Units::mm;
+      }
+      if (n != 3)
+        throw std::invalid_argument(item);
+    }
+    catch (const std::logic_error&) {
+      throw std::runtime_error("BankCalibration: invalid bank shift '" + item + "' (bank:dx,dy,dz in mm)");
+    }
+    if (bankId < 0 || bankId > 8)
+      throw std::runtime_error("BankCalibration: invalid bank id in the bank shift '" + item + "' (0-8)");
+    if (out.count(bankId))
+      throw std::runtime_error("BankCalibration: bank " + std::to_string(bankId) + " is shifted twice");
+    for (const double value : shift)
+      if (!std::isfinite(value))
+        throw std::runtime_error("BankCalibration: invalid bank shift '" + item + "'");
+    if (bankId == 0 && shift[2] != 0.0)
+      throw std::runtime_error("BankCalibration: the z of the rear bank (0) is rear_detector_distance_m, not a shift: '" + item + "'");
+    out[bankId] = shift;
+  }
+  return out;
+}
+
+namespace {
+  // a bank line of a calibration file, in full precision
+  std::string bankLine(const int bankId, const BankCalibration::Bank& bank) {
+    char buffer[512];
+    std::snprintf(buffer, sizeof(buffer), "bank %d %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g", bankId,
+                  bank.frontFaceCentre[0] / Units::mm, bank.frontFaceCentre[1] / Units::mm, bank.frontFaceCentre[2] / Units::mm,
+                  bank.alongTubes[0], bank.alongTubes[1], bank.alongTubes[2], bank.acrossTubes[0], bank.acrossTubes[1],
+                  bank.acrossTubes[2], bank.layerNormal[0], bank.layerNormal[1], bank.layerNormal[2]);
+    return buffer;
+  }
+}
+
+BankCalibration BankCalibration::shifted(const std::string& shifts) const {
+  const auto parsed = parseShifts(shifts);
+  if (parsed.empty())
+    return *this;
+  BankCalibration out = *this;
+  for (const auto& [bankId, shift] : parsed) {
+    if (!hasBank(bankId))
+      throw std::runtime_error("BankCalibration: bank " + std::to_string(bankId) + " can not be shifted: it is not in the calibration '"
+                               + m_name + "'");
+    for (int i = 0; i < 3; i++)
+      out.m_banks[bankId].frontFaceCentre[i] += shift[i];
+  }
+  // the text: the shifted bank lines replaced (full precision), the shifts noted in a comment
+  std::istringstream lines(m_text);
+  std::ostringstream text;
+  std::string line;
+  while (std::getline(lines, line)) {
+    std::istringstream words(line);
+    std::string key;
+    int bankId = -1;
+    if (words >> key && key == "bank" && words >> bankId && parsed.count(bankId))
+      line = bankLine(bankId, out.m_banks[bankId]);
+    else if (key == "name")
+      line += "\n# banks shifted from this calibration (bank_shifts_mm): " + shifts;
+    text << line << "\n";
+  }
+  out.m_text = text.str();
+  return out;
 }

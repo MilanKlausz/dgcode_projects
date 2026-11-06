@@ -99,11 +99,10 @@ def launch(geo):
       launcher.setUserData("analysis_straw_pixel_number", str(launcher.getParameterInt('analysis_straw_pixel_number')))
       launcher.setUserData("rear_detector_distance_m", str(launcher.getGeo().getParameterDouble("rear_detector_distance_m")))
       # the bank placements (also written to the detection files of the analysis, checked by the LokiMantid scripts)
-      bankCalibration = launcher.getGeo().getParameterString("bank_calibration")
-      launcher.setUserData("bank_calibration", bankCalibration)
-      # the text of the calibration: the analysis uses it, so that it has the placements of the simulation even if the
-      # calibration file changes or is not there
-      launcher.setUserData("bank_calibration_text", LokiAim.bankCalibrationText(bankCalibration))
+      bankPlacement = LokiAim.bankPlacementUserData(launcher.getGeo())
+      for key, value in bankPlacement.items():
+        launcher.setUserData(key, value)
+      bankCalibration = bankPlacement["bank_calibration"]
       if bankCalibration != LokiAim.NOMINAL_BANK_CALIBRATION:
         print(f"NOTE: bank_calibration={bankCalibration}: the LokiMantid scripts (Mantid instrument definition) assume "
               f"the nominal geometry; use bank_calibration={LokiAim.NOMINAL_BANK_CALIBRATION} for simulations to be "
